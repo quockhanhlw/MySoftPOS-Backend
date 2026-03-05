@@ -25,18 +25,18 @@ public class JwtTokenProvider {
         this.refreshTokenExpiration = refreshExp;
     }
 
-    public String generateAccessToken(String username, String role) {
-        return buildToken(username, role, accessTokenExpiration);
+    public String generateAccessToken(String subject, String role) {
+        return buildToken(subject, role, accessTokenExpiration);
     }
 
-    public String generateRefreshToken(String username) {
-        return buildToken(username, null, refreshTokenExpiration);
+    public String generateRefreshToken(String subject) {
+        return buildToken(subject, null, refreshTokenExpiration);
     }
 
-    private String buildToken(String username, String role, long expiration) {
+    private String buildToken(String subject, String role, long expiration) {
         Date now = new Date();
         JwtBuilder builder = Jwts.builder()
-                .subject(username)
+                .subject(subject)
                 .issuedAt(now)
                 .expiration(new Date(now.getTime() + expiration))
                 .signWith(key);
@@ -44,7 +44,7 @@ public class JwtTokenProvider {
         return builder.compact();
     }
 
-    public String getUsernameFromToken(String token) {
+    public String getSubjectFromToken(String token) {
         return Jwts.parser().verifyWith(key).build()
                 .parseSignedClaims(token).getPayload().getSubject();
     }

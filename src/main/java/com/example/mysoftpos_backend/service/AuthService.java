@@ -22,16 +22,15 @@ public class AuthService {
     private static final int LOCKOUT_MINUTES = 30;
 
     public LoginResponse register(RegisterRequest req) {
-        if (userRepo.existsByUsername(req.getUsername())) {
-            throw new RuntimeException("Username already exists");
+        if (userRepo.existsByPhone(req.getPhone())) {
+            throw new RuntimeException("Phone number already registered");
         }
 
         User user = User.builder()
-                .username(req.getUsername())
+                .phone(req.getPhone())
                 .passwordHash(passwordEncoder.encode(req.getPassword()))
                 .role("ADMIN")
                 .fullName(req.getFullName())
-                .phone(req.getPhone())
                 .email(req.getEmail())
                 .build();
         userRepo.save(user);
@@ -40,7 +39,11 @@ public class AuthService {
     }
 
     public LoginResponse login(LoginRequest req) {
-        User user = userRepo.findByUsername(req.getUsername())
+        // req.getUsername() contains phone or email from the client
+        String identifier = req.getUsername();
+
+        User user = userRepo.findByPhone(identifier)
+                .or(() -> userRepo.findByEmail(identifier))
                 .orElseThrow(() -> new RuntimeException("Invalid credentials"));
 
         // PA-DSS 3.x: Account lockout check
@@ -53,7 +56,6 @@ public class AuthService {
         }
 
         if (!passwordEncoder.matches(req.getPassword(), user.getPasswordHash())) {
-            // Increment failed attempts
             user.setFailedLoginAttempts(user.getFailedLoginAttempts() + 1);
             if (user.getFailedLoginAttempts() >= MAX_FAILED_ATTEMPTS) {
                 user.setLockedUntil(LocalDateTime.now().plusMinutes(LOCKOUT_MINUTES));
@@ -75,19 +77,18 @@ public class AuthService {
         if (!jwtProvider.validateToken(refreshToken)) {
             throw new RuntimeException("Invalid refresh token");
         }
-        String username = jwtProvider.getUsernameFromToken(refreshToken);
-        User user = userRepo.findByUsername(username)
+        String phone = jwtProvider.getSubjectFromToken(refreshToken);
+        User user = userRepo.findByPhone(phone)
                 .orElseThrow(() -> new RuntimeException("User not found"));
         return buildLoginResponse(user);
     }
 
     private LoginResponse buildLoginResponse(User user) {
-        String accessToken = jwtProvider.generateAccessToken(user.getUsername(), user.getRole());
-        String refreshToken = jwtProvider.generateRefreshToken(user.getUsername());
+        String accessToken = jwtProvider.generateAccessToken(user.getPhone(), user.getRole());
+        String refreshToken = jwtProvider.generateRefreshToken(user.getPhone());
 
         UserDto dto = UserDto.builder()
                 .id(user.getId())
-                .username(user.getUsername())
                 .role(user.getRole())
                 .fullName(user.getFullName())
                 .phone(user.getPhone())

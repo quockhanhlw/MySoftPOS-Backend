@@ -33,8 +33,8 @@ public class JwtAuthFilter extends OncePerRequestFilter {
 
         String token = extractToken(request);
         if (token != null && jwtProvider.validateToken(token)) {
-            String username = jwtProvider.getUsernameFromToken(token);
-            User user = userRepository.findByUsername(username).orElse(null);
+            String phone = jwtProvider.getSubjectFromToken(token);
+            User user = userRepository.findByPhone(phone).orElse(null);
 
             if (user != null && user.isActive()) {
                 var authority = new SimpleGrantedAuthority("ROLE_" + user.getRole());

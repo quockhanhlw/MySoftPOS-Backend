@@ -7,6 +7,7 @@ import com.example.mysoftpos_backend.entity.User;
 import com.example.mysoftpos_backend.repository.TransactionSummaryRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Instant;
 import java.time.LocalDateTime;
@@ -47,16 +48,19 @@ public class TransactionService {
         return synced;
     }
 
+    @Transactional(readOnly = true)
     public List<TransactionSummaryDto> getAllTransactions() {
         return txnRepo.findAllByOrderByTxnTimestampDesc().stream()
                 .map(this::toDto).collect(Collectors.toList());
     }
 
+    @Transactional(readOnly = true)
     public List<TransactionSummaryDto> getByTerminal(String terminalCode) {
         return txnRepo.findByTerminalCodeOrderByTxnTimestampDesc(terminalCode).stream()
                 .map(this::toDto).collect(Collectors.toList());
     }
 
+    @Transactional(readOnly = true)
     public List<TransactionSummaryDto> getByUser(Long userId) {
         return txnRepo.findByUserIdOrderByTxnTimestampDesc(userId).stream()
                 .map(this::toDto).collect(Collectors.toList());
@@ -75,7 +79,7 @@ public class TransactionService {
                 .txnTimestamp(t.getTxnTimestamp() != null ? t.getTxnTimestamp().format(ISO_FMT) : null)
                 .syncedAt(t.getSyncedAt() != null ? t.getSyncedAt().format(ISO_FMT) : null)
                 .userId(t.getUser() != null ? t.getUser().getId() : null)
-                .username(t.getUser() != null ? t.getUser().getUsername() : null)
+                .username(t.getUser() != null ? t.getUser().getPhone() : null)
                 .build();
     }
 }

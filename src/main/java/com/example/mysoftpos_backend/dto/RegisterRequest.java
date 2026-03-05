@@ -6,9 +6,8 @@ import lombok.*;
 
 @Getter @Setter @NoArgsConstructor @AllArgsConstructor
 public class RegisterRequest {
-    @NotBlank private String username;
+    @NotBlank private String phone;
     @NotBlank @Size(min = 7) private String password;
     private String fullName;
-    private String phone;
     private String email;
 }

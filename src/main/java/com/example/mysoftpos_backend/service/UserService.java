@@ -24,19 +24,18 @@ public class UserService {
     }
 
     public UserDto createUser(Long adminId, CreateUserRequest req) {
-        if (userRepo.existsByUsername(req.getUsername())) {
-            throw new RuntimeException("Username already exists");
+        if (userRepo.existsByPhone(req.getPhone())) {
+            throw new RuntimeException("Phone number already registered");
         }
         if (req.getPassword() == null || req.getPassword().isBlank()) {
             throw new RuntimeException("Password is required for new user");
         }
 
         User user = User.builder()
-                .username(req.getUsername())
+                .phone(req.getPhone())
                 .passwordHash(passwordEncoder.encode(req.getPassword()))
                 .role("USER")
                 .fullName(req.getFullName())
-                .phone(req.getPhone())
                 .email(req.getEmail())
                 .terminalId(req.getTerminalId())
                 .adminId(adminId)
@@ -53,7 +52,13 @@ public class UserService {
         }
 
         if (req.getFullName() != null) user.setFullName(req.getFullName());
-        if (req.getPhone() != null) user.setPhone(req.getPhone());
+        if (req.getPhone() != null) {
+            // Check phone uniqueness if changed
+            if (!req.getPhone().equals(user.getPhone()) && userRepo.existsByPhone(req.getPhone())) {
+                throw new RuntimeException("Phone number already registered");
+            }
+            user.setPhone(req.getPhone());
+        }
         if (req.getEmail() != null) user.setEmail(req.getEmail());
         if (req.getTerminalId() != null) user.setTerminalId(req.getTerminalId());
         if (req.getPassword() != null && !req.getPassword().isEmpty()) {
@@ -87,7 +92,6 @@ public class UserService {
     private UserDto toDto(User u) {
         return UserDto.builder()
                 .id(u.getId())
-                .username(u.getUsername())
                 .role(u.getRole())
                 .fullName(u.getFullName())
                 .phone(u.getPhone())

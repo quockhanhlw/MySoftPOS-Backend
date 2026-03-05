@@ -6,9 +6,10 @@ import java.util.List;
 import java.util.Optional;
 
 public interface UserRepository extends JpaRepository<User, Long> {
-    Optional<User> findByUsername(String username);
-    boolean existsByUsername(String username);
+    Optional<User> findByPhone(String phone);
+    Optional<User> findByEmail(String email);
+    boolean existsByPhone(String phone);
+    boolean existsByEmail(String email);
     List<User> findByAdminId(Long adminId);
     List<User> findByAdminIdAndRole(Long adminId, String role);
-    List<User> findByAdminIdAndUsernameContainingIgnoreCase(Long adminId, String keyword);
 }
