@@ -37,11 +37,11 @@ build/
 .env
 .env.*
 
-# Ignore application config with credentials
-application.yml
-application-*.yml
-application.properties
-application-*.properties
+# Ignore application config with credentials (Now using environment variables, so we can track them)
+# application.yml
+# application-*.yml
+# application.properties
+# application-*.properties
 
 # Local databases and logs
 data/
