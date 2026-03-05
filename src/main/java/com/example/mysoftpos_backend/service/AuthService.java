@@ -94,6 +94,8 @@ public class AuthService {
                 .phone(user.getPhone())
                 .email(user.getEmail())
                 .terminalId(user.getTerminalId())
+                .serverIp(user.getServerIp())
+                .serverPort(user.getServerPort())
                 .active(user.isActive())
                 .build();
 
