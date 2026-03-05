@@ -11,4 +11,6 @@ public class CreateUserRequest {
     private String fullName;
     private String email;
     private String terminalId;
+    private String serverIp;
+    private Integer serverPort;
 }

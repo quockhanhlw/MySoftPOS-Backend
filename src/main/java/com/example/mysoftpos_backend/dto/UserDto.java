@@ -10,5 +10,7 @@ public class UserDto {
     private String phone;
     private String email;
     private String terminalId;
+    private String serverIp;
+    private Integer serverPort;
     private boolean active;
 }

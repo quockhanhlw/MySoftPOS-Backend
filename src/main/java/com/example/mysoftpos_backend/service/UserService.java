@@ -38,6 +38,8 @@ public class UserService {
                 .fullName(req.getFullName())
                 .email(req.getEmail())
                 .terminalId(req.getTerminalId())
+                .serverIp(req.getServerIp())
+                .serverPort(req.getServerPort())
                 .adminId(adminId)
                 .build();
         userRepo.save(user);
@@ -61,6 +63,8 @@ public class UserService {
         }
         if (req.getEmail() != null) user.setEmail(req.getEmail());
         if (req.getTerminalId() != null) user.setTerminalId(req.getTerminalId());
+        if (req.getServerIp() != null) user.setServerIp(req.getServerIp());
+        if (req.getServerPort() != null) user.setServerPort(req.getServerPort());
         if (req.getPassword() != null && !req.getPassword().isEmpty()) {
             user.setPasswordHash(passwordEncoder.encode(req.getPassword()));
         }
@@ -97,6 +101,8 @@ public class UserService {
                 .phone(u.getPhone())
                 .email(u.getEmail())
                 .terminalId(u.getTerminalId())
+                .serverIp(u.getServerIp())
+                .serverPort(u.getServerPort())
                 .active(u.isActive())
                 .build();
     }

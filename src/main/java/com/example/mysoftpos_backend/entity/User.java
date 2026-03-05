@@ -41,6 +41,12 @@ public class User {
     @Builder.Default
     private boolean active = true;
 
+    @Column(length = 50)
+    private String serverIp;
+
+    @Column
+    private Integer serverPort;
+
     // PA-DSS 3.x: Account lockout
     @Column(nullable = false)
     @Builder.Default
