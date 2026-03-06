@@ -2,7 +2,11 @@ package com.example.mysoftpos_backend.dto;
 
 import lombok.*;
 
-@Getter @Setter @NoArgsConstructor @AllArgsConstructor @Builder
+@Getter
+@Setter
+@NoArgsConstructor
+@AllArgsConstructor
+@Builder
 public class UserDto {
     private Long id;
     private String role;
@@ -13,4 +17,5 @@ public class UserDto {
     private String serverIp;
     private Integer serverPort;
     private boolean active;
+    private boolean online;
 }

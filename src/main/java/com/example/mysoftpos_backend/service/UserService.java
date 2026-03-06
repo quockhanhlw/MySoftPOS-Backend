@@ -53,7 +53,8 @@ public class UserService {
             throw new RuntimeException("Access denied");
         }
 
-        if (req.getFullName() != null) user.setFullName(req.getFullName());
+        if (req.getFullName() != null)
+            user.setFullName(req.getFullName());
         if (req.getPhone() != null) {
             // Check phone uniqueness if changed
             if (!req.getPhone().equals(user.getPhone()) && userRepo.existsByPhone(req.getPhone())) {
@@ -61,10 +62,14 @@ public class UserService {
             }
             user.setPhone(req.getPhone());
         }
-        if (req.getEmail() != null) user.setEmail(req.getEmail());
-        if (req.getTerminalId() != null) user.setTerminalId(req.getTerminalId());
-        if (req.getServerIp() != null) user.setServerIp(req.getServerIp());
-        if (req.getServerPort() != null) user.setServerPort(req.getServerPort());
+        if (req.getEmail() != null)
+            user.setEmail(req.getEmail());
+        if (req.getTerminalId() != null)
+            user.setTerminalId(req.getTerminalId());
+        if (req.getServerIp() != null)
+            user.setServerIp(req.getServerIp());
+        if (req.getServerPort() != null)
+            user.setServerPort(req.getServerPort());
         if (req.getPassword() != null && !req.getPassword().isEmpty()) {
             user.setPasswordHash(passwordEncoder.encode(req.getPassword()));
         }
@@ -94,6 +99,9 @@ public class UserService {
     }
 
     private UserDto toDto(User u) {
+        boolean isOnline = u.getLastActiveAt() != null &&
+                u.getLastActiveAt().isAfter(java.time.LocalDateTime.now().minusMinutes(5));
+
         return UserDto.builder()
                 .id(u.getId())
                 .role(u.getRole())
@@ -104,6 +112,7 @@ public class UserService {
                 .serverIp(u.getServerIp())
                 .serverPort(u.getServerPort())
                 .active(u.isActive())
+                .online(isOnline)
                 .build();
     }
 }

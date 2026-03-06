@@ -28,8 +28,8 @@ public class JwtAuthFilter extends OncePerRequestFilter {
 
     @Override
     protected void doFilterInternal(HttpServletRequest request,
-                                    HttpServletResponse response,
-                                    FilterChain filterChain) throws ServletException, IOException {
+            HttpServletResponse response,
+            FilterChain filterChain) throws ServletException, IOException {
 
         String token = extractToken(request);
         if (token != null && jwtProvider.validateToken(token)) {
@@ -37,6 +37,8 @@ public class JwtAuthFilter extends OncePerRequestFilter {
             User user = userRepository.findByPhone(phone).orElse(null);
 
             if (user != null && user.isActive()) {
+                userRepository.updateLastActiveAt(user.getId(), java.time.LocalDateTime.now());
+
                 var authority = new SimpleGrantedAuthority("ROLE_" + user.getRole());
                 var auth = new UsernamePasswordAuthenticationToken(
                         user, null, List.of(authority));
