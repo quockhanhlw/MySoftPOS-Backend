@@ -57,8 +57,10 @@ public class TestSuiteService {
         if (!suite.getAdminId().equals(adminId)) {
             throw new RuntimeException("Access denied");
         }
-        if (req.getName() != null) suite.setName(req.getName());
-        if (req.getDescription() != null) suite.setDescription(req.getDescription());
+        if (req.getName() != null)
+            suite.setName(req.getName());
+        if (req.getDescription() != null)
+            suite.setDescription(req.getDescription());
         suiteRepo.save(suite);
         return toSuiteDto(suite);
     }
@@ -115,16 +117,26 @@ public class TestSuiteService {
         if (!tc.getSuite().getAdminId().equals(adminId)) {
             throw new RuntimeException("Access denied");
         }
-        if (req.getName() != null) tc.setName(req.getName());
-        if (req.getTransactionType() != null) tc.setTransactionType(req.getTransactionType());
-        if (req.getStatus() != null) tc.setStatus(req.getStatus());
-        if (req.getAmount() != null) tc.setAmount(req.getAmount());
-        if (req.getDe22() != null) tc.setDe22(req.getDe22());
-        if (req.getMaskedPan() != null) tc.setMaskedPan(req.getMaskedPan());
-        if (req.getExpiry() != null) tc.setExpiry(req.getExpiry());
-        if (req.getTrack2() != null) tc.setTrack2(req.getTrack2());
-        if (req.getScheme() != null) tc.setScheme(req.getScheme());
-        if (req.getFieldConfigJson() != null) tc.setFieldConfigJson(req.getFieldConfigJson());
+        if (req.getName() != null)
+            tc.setName(req.getName());
+        if (req.getTransactionType() != null)
+            tc.setTransactionType(req.getTransactionType());
+        if (req.getStatus() != null)
+            tc.setStatus(req.getStatus());
+        if (req.getAmount() != null)
+            tc.setAmount(req.getAmount());
+        if (req.getDe22() != null)
+            tc.setDe22(req.getDe22());
+        if (req.getMaskedPan() != null)
+            tc.setMaskedPan(req.getMaskedPan());
+        if (req.getExpiry() != null)
+            tc.setExpiry(req.getExpiry());
+        if (req.getTrack2() != null)
+            tc.setTrack2(req.getTrack2());
+        if (req.getScheme() != null)
+            tc.setScheme(req.getScheme());
+        if (req.getFieldConfigJson() != null)
+            tc.setFieldConfigJson(req.getFieldConfigJson());
         caseRepo.save(tc);
         return toCaseDto(tc);
     }
@@ -147,7 +159,8 @@ public class TestSuiteService {
             TestSuite suite;
             if (suiteDto.getId() != null) {
                 suite = suiteRepo.findById(suiteDto.getId()).orElse(null);
-                if (suite != null && !suite.getAdminId().equals(adminId)) continue;
+                if (suite != null && !suite.getAdminId().equals(adminId))
+                    continue;
             } else {
                 suite = null;
             }
@@ -159,8 +172,10 @@ public class TestSuiteService {
                         .build();
                 suiteRepo.save(suite);
             } else {
-                if (suiteDto.getName() != null) suite.setName(suiteDto.getName());
-                if (suiteDto.getDescription() != null) suite.setDescription(suiteDto.getDescription());
+                if (suiteDto.getName() != null)
+                    suite.setName(suiteDto.getName());
+                if (suiteDto.getDescription() != null)
+                    suite.setDescription(suiteDto.getDescription());
                 suiteRepo.save(suite);
             }
 
@@ -219,4 +234,3 @@ public class TestSuiteService {
                 .build();
     }
 }
-

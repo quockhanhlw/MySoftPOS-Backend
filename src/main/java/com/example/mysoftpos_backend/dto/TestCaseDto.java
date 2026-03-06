@@ -2,7 +2,11 @@ package com.example.mysoftpos_backend.dto;
 
 import lombok.*;
 
-@Getter @Setter @NoArgsConstructor @AllArgsConstructor @Builder
+@Getter
+@Setter
+@NoArgsConstructor
+@AllArgsConstructor
+@Builder
 public class TestCaseDto {
     private Long id;
     private Long suiteId;
@@ -18,4 +22,3 @@ public class TestCaseDto {
     private String fieldConfigJson;
     private String createdAt;
 }
-

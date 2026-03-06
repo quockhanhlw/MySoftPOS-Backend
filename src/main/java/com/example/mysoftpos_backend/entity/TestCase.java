@@ -6,7 +6,11 @@ import java.time.LocalDateTime;
 
 @Entity
 @Table(name = "test_cases")
-@Getter @Setter @NoArgsConstructor @AllArgsConstructor @Builder
+@Getter
+@Setter
+@NoArgsConstructor
+@AllArgsConstructor
+@Builder
 public class TestCase {
 
     @Id
@@ -52,4 +56,3 @@ public class TestCase {
     @Builder.Default
     private LocalDateTime createdAt = LocalDateTime.now();
 }
-
