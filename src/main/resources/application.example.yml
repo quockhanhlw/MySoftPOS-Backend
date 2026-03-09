@@ -5,41 +5,31 @@ spring:
   application:
     name: mysoftpos-backend
 
-  # --- H2 for development (switch to MySQL for production) ---
-  # datasource:
-  #   url: jdbc:h2:file:./data/mysoftpos_db;AUTO_SERVER=TRUE
-  #   driver-class-name: org.h2.Driver
-  #   username: sa
-  #   password:
-  #
-  # h2:
-  #   console:
-  #     enabled: true
-  #     path: /h2-console
-
-  # --- MySQL for production (uncomment and replace H2 above) ---
   datasource:
-    url: jdbc:mysql://localhost:3306/mysoftpos?useSSL=false&serverTimezone=UTC&allowPublicKeyRetrieval=true
-    driver-class-name: com.mysql.cj.jdbc.Driver
-    username: root
-    password: "YOUR_MYSQL_PASSWORD_HERE"
+    # Runtime default: MySQL. Override via env vars in each environment.
+    url: ${SPRING_DATASOURCE_URL:jdbc:mysql://localhost:3306/mysoftpos?useSSL=false&serverTimezone=UTC&allowPublicKeyRetrieval=true}
+    driver-class-name: ${SPRING_DATASOURCE_DRIVER_CLASS_NAME:com.mysql.cj.jdbc.Driver}
+    username: ${SPRING_DATASOURCE_USERNAME:root}
+    password: ${SPRING_DATASOURCE_PASSWORD:YOUR_MYSQL_PASSWORD_HERE}
+  h2:
+    console:
+      enabled: ${SPRING_H2_CONSOLE_ENABLED:false}
+      path: /h2-console
   jpa:
-    show-sql: true
+    show-sql: ${SPRING_JPA_SHOW_SQL:false}
     properties:
       hibernate:
         format_sql: true
     hibernate:
-      ddl-auto: update
-    database-platform: org.hibernate.dialect.MySQLDialect
+      ddl-auto: ${SPRING_JPA_HIBERNATE_DDL_AUTO:update}
+    database-platform: ${SPRING_JPA_DATABASE_PLATFORM:org.hibernate.dialect.MySQLDialect}
 
-# --- JWT Config ---
 app:
   jwt:
-    secret: YOUR_SECRET_KEY_HERE_MUST_BE_LONG_ENOUGH
-    access-token-expiration: 3600000    # 1 hour
-    refresh-token-expiration: 604800000 # 7 days
+    secret: ${APP_JWT_SECRET:CHANGE_ME_TO_A_LONG_RANDOM_SECRET_IN_ENV}
+    access-token-expiration: 3600000
+    refresh-token-expiration: 604800000
 
-# --- Swagger ---
 springdoc:
   api-docs:
     path: /api-docs

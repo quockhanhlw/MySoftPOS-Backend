@@ -13,25 +13,36 @@ import java.time.LocalDateTime;
 @Service
 @RequiredArgsConstructor
 public class AuthService {
+    private static final String ADMIN_ROLE = "ADMIN";
+    private static final int MAX_FAILED_ATTEMPTS = 6;
+    private static final int LOCKOUT_MINUTES = 30;
 
     private final UserRepository userRepo;
     private final PasswordEncoder passwordEncoder;
     private final JwtTokenProvider jwtProvider;
 
-    private static final int MAX_FAILED_ATTEMPTS = 6;
-    private static final int LOCKOUT_MINUTES = 30;
-
     public LoginResponse register(RegisterRequest req) {
-        if (userRepo.existsByPhone(req.getPhone())) {
+        if (userRepo.existsByRole(ADMIN_ROLE)) {
+            throw new RuntimeException("An admin account already exists. Please sign in.");
+        }
+
+        String phone = normalizePhone(req.getPhone());
+        String email = normalizeEmail(req.getEmail());
+        String fullName = normalizeText(req.getFullName());
+
+        if (userRepo.existsByPhone(phone)) {
             throw new RuntimeException("Phone number already registered");
+        }
+        if (email != null && userRepo.existsByEmail(email)) {
+            throw new RuntimeException("Email already registered");
         }
 
         User user = User.builder()
-                .phone(req.getPhone())
+                .phone(phone)
                 .passwordHash(passwordEncoder.encode(req.getPassword()))
-                .role("ADMIN")
-                .fullName(req.getFullName())
-                .email(req.getEmail())
+                .role(ADMIN_ROLE)
+                .fullName(fullName)
+                .email(email)
                 .build();
         userRepo.save(user);
 
@@ -39,8 +50,7 @@ public class AuthService {
     }
 
     public LoginResponse login(LoginRequest req) {
-        // req.getUsername() contains phone or email from the client
-        String identifier = req.getUsername();
+        String identifier = normalizeIdentifier(req.getUsername());
 
         User user = userRepo.findByPhone(identifier)
                 .or(() -> userRepo.findByEmail(identifier))
@@ -104,5 +114,23 @@ public class AuthService {
                 .refreshToken(refreshToken)
                 .user(dto)
                 .build();
+    }
+
+    private String normalizeIdentifier(String value) {
+        return value == null ? "" : value.trim();
+    }
+
+    private String normalizePhone(String value) {
+        return normalizeIdentifier(value);
+    }
+
+    private String normalizeEmail(String value) {
+        String normalized = normalizeIdentifier(value);
+        return normalized.isEmpty() ? null : normalized.toLowerCase(java.util.Locale.ROOT);
+    }
+
+    private String normalizeText(String value) {
+        String normalized = normalizeIdentifier(value);
+        return normalized.isEmpty() ? null : normalized;
     }
 }

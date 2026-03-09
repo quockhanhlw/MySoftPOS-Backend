@@ -24,21 +24,28 @@ public class UserService {
     }
 
     public UserDto createUser(Long adminId, CreateUserRequest req) {
-        if (userRepo.existsByPhone(req.getPhone())) {
+        String phone = normalizePhone(req.getPhone());
+        String email = normalizeEmail(req.getEmail());
+        String fullName = normalizeText(req.getFullName());
+
+        if (userRepo.existsByPhone(phone)) {
             throw new RuntimeException("Phone number already registered");
+        }
+        if (email != null && userRepo.existsByEmail(email)) {
+            throw new RuntimeException("Email already registered");
         }
         if (req.getPassword() == null || req.getPassword().isBlank()) {
             throw new RuntimeException("Password is required for new user");
         }
 
         User user = User.builder()
-                .phone(req.getPhone())
+                .phone(phone)
                 .passwordHash(passwordEncoder.encode(req.getPassword()))
                 .role("USER")
-                .fullName(req.getFullName())
-                .email(req.getEmail())
-                .terminalId(req.getTerminalId())
-                .serverIp(req.getServerIp())
+                .fullName(fullName)
+                .email(email)
+                .terminalId(normalizeText(req.getTerminalId()))
+                .serverIp(normalizeText(req.getServerIp()))
                 .serverPort(req.getServerPort())
                 .adminId(adminId)
                 .build();
@@ -54,20 +61,26 @@ public class UserService {
         }
 
         if (req.getFullName() != null)
-            user.setFullName(req.getFullName());
+            user.setFullName(normalizeText(req.getFullName()));
         if (req.getPhone() != null) {
-            // Check phone uniqueness if changed
-            if (!req.getPhone().equals(user.getPhone()) && userRepo.existsByPhone(req.getPhone())) {
+            String phone = normalizePhone(req.getPhone());
+            if (!phone.equals(user.getPhone()) && userRepo.existsByPhone(phone)) {
                 throw new RuntimeException("Phone number already registered");
             }
-            user.setPhone(req.getPhone());
+            user.setPhone(phone);
         }
-        if (req.getEmail() != null)
-            user.setEmail(req.getEmail());
+        if (req.getEmail() != null) {
+            String email = normalizeEmail(req.getEmail());
+            String currentEmail = normalizeEmail(user.getEmail());
+            if (email != null && !email.equals(currentEmail) && userRepo.existsByEmail(email)) {
+                throw new RuntimeException("Email already registered");
+            }
+            user.setEmail(email);
+        }
         if (req.getTerminalId() != null)
-            user.setTerminalId(req.getTerminalId());
+            user.setTerminalId(normalizeText(req.getTerminalId()));
         if (req.getServerIp() != null)
-            user.setServerIp(req.getServerIp());
+            user.setServerIp(normalizeText(req.getServerIp()));
         if (req.getServerPort() != null)
             user.setServerPort(req.getServerPort());
         if (req.getPassword() != null && !req.getPassword().isEmpty()) {
@@ -114,5 +127,25 @@ public class UserService {
                 .active(u.isActive())
                 .online(isOnline)
                 .build();
+    }
+
+    private String normalizePhone(String value) {
+        return value == null ? "" : value.trim();
+    }
+
+    private String normalizeEmail(String value) {
+        if (value == null) {
+            return null;
+        }
+        String normalized = value.trim().toLowerCase(java.util.Locale.ROOT);
+        return normalized.isEmpty() ? null : normalized;
+    }
+
+    private String normalizeText(String value) {
+        if (value == null) {
+            return null;
+        }
+        String normalized = value.trim();
+        return normalized.isEmpty() ? null : normalized;
     }
 }
