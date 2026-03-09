@@ -1,20 +1,17 @@
 server:
-  port: 8080
+  port: ${PORT:8080}
 
 spring:
   application:
     name: mysoftpos-backend
 
   datasource:
-    # Runtime default: MySQL. Override via env vars in each environment.
-    url: ${SPRING_DATASOURCE_URL:jdbc:mysql://localhost:3306/mysoftpos?useSSL=false&serverTimezone=UTC&allowPublicKeyRetrieval=true}
+    # Inject the real Aiven JDBC URL via env var.
+    # Example: jdbc:mysql://YOUR_AIVEN_HOST:YOUR_AIVEN_PORT/YOUR_DATABASE?sslMode=REQUIRED&serverTimezone=UTC&allowPublicKeyRetrieval=true
+    url: ${SPRING_DATASOURCE_URL:jdbc:mysql://YOUR_AIVEN_HOST:YOUR_AIVEN_PORT/YOUR_DATABASE?sslMode=REQUIRED&serverTimezone=UTC&allowPublicKeyRetrieval=true}
     driver-class-name: ${SPRING_DATASOURCE_DRIVER_CLASS_NAME:com.mysql.cj.jdbc.Driver}
-    username: ${SPRING_DATASOURCE_USERNAME:root}
-    password: ${SPRING_DATASOURCE_PASSWORD:YOUR_MYSQL_PASSWORD_HERE}
-  h2:
-    console:
-      enabled: ${SPRING_H2_CONSOLE_ENABLED:false}
-      path: /h2-console
+    username: ${SPRING_DATASOURCE_USERNAME:YOUR_AIVEN_USERNAME}
+    password: ${SPRING_DATASOURCE_PASSWORD:YOUR_AIVEN_PASSWORD}
   jpa:
     show-sql: ${SPRING_JPA_SHOW_SQL:false}
     properties:
@@ -26,7 +23,7 @@ spring:
 
 app:
   jwt:
-    secret: ${APP_JWT_SECRET:CHANGE_ME_TO_A_LONG_RANDOM_SECRET_IN_ENV}
+    secret: ${APP_JWT_SECRET:YOUR_LONG_RANDOM_JWT_SECRET}
     access-token-expiration: 3600000
     refresh-token-expiration: 604800000
 

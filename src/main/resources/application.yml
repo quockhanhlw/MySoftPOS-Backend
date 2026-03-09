@@ -1,25 +1,21 @@
 server:
-  port: 8080
+  port: ${PORT:8080}
 
 spring:
   application:
     name: mysoftpos-backend
 
   datasource:
-    url: ${SPRING_DATASOURCE_URL:jdbc:mysql://localhost:3306/mysoftpos?useSSL=false&serverTimezone=UTC&allowPublicKeyRetrieval=true}
+    url: ${SPRING_DATASOURCE_URL}
     driver-class-name: ${SPRING_DATASOURCE_DRIVER_CLASS_NAME:com.mysql.cj.jdbc.Driver}
-    username: ${SPRING_DATASOURCE_USERNAME:root}
-    password: ${SPRING_DATASOURCE_PASSWORD:Dungtimanhnua123@}
+    username: ${SPRING_DATASOURCE_USERNAME}
+    password: ${SPRING_DATASOURCE_PASSWORD}
     hikari:
       maximum-pool-size: 10
       minimum-idle: 2
       idle-timeout: 300000        # 5 min
       connection-timeout: 10000   # 10 sec
       max-lifetime: 1800000       # 30 min
-  h2:
-    console:
-      enabled: ${SPRING_H2_CONSOLE_ENABLED:false}
-      path: /h2-console
   jpa:
     open-in-view: false
     show-sql: ${SPRING_JPA_SHOW_SQL:false}
@@ -33,7 +29,7 @@ spring:
 
 app:
   jwt:
-    secret: ${APP_JWT_SECRET:CHANGE_ME_TO_A_LONG_RANDOM_SECRET_IN_ENV}
+    secret: ${APP_JWT_SECRET}
     access-token-expiration: 3600000    # 1 hour
     refresh-token-expiration: 604800000 # 7 days
 
