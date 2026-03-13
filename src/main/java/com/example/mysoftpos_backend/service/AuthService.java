@@ -5,6 +5,8 @@ import com.example.mysoftpos_backend.entity.User;
 import com.example.mysoftpos_backend.repository.UserRepository;
 import com.example.mysoftpos_backend.security.JwtTokenProvider;
 import lombok.RequiredArgsConstructor;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.mail.SimpleMailMessage;
 import org.springframework.mail.javamail.JavaMailSender;
@@ -18,6 +20,7 @@ import java.util.concurrent.ThreadLocalRandom;
 @Service
 @RequiredArgsConstructor
 public class AuthService {
+    private static final Logger log = LoggerFactory.getLogger(AuthService.class);
     private static final String ADMIN_ROLE = "ADMIN";
     private static final int MAX_FAILED_ATTEMPTS = 6;
     private static final int LOCKOUT_MINUTES = 30;
@@ -36,6 +39,12 @@ public class AuthService {
 
     @Value("${app.auth.forgot-password.mail-from:no-reply@mysoftpos.local}")
     private String forgotMailFrom;
+
+    @Value("${spring.mail.host:}")
+    private String mailHost;
+
+    @Value("${spring.mail.username:}")
+    private String mailUsername;
 
     public LoginResponse register(RegisterRequest req) {
         if (userRepo.existsByRole(ADMIN_ROLE)) {
@@ -128,7 +137,14 @@ public class AuthService {
         user.setForgotPasswordCodeAttempts(0);
         userRepo.save(user);
 
-        sendForgotPasswordEmail(user, code);
+        try {
+            sendForgotPasswordEmail(user, code);
+        } catch (RuntimeException ex) {
+            // Avoid keeping a fresh OTP when delivery fails.
+            clearForgotPasswordState(user);
+            userRepo.save(user);
+            throw ex;
+        }
         return Map.of("message", "If your email exists, a verification code has been sent.");
     }
 
@@ -252,17 +268,28 @@ public class AuthService {
         if (email == null || email.isBlank()) {
             throw new RuntimeException("User does not have a registered email");
         }
+        if (mailHost == null || mailHost.isBlank()) {
+            throw new RuntimeException("Email service is not configured on server");
+        }
+        if (mailUsername == null || mailUsername.isBlank()) {
+            throw new RuntimeException("Email sender account is not configured on server");
+        }
+
+        String from = (forgotMailFrom == null || forgotMailFrom.isBlank())
+                ? mailUsername
+                : forgotMailFrom;
 
         SimpleMailMessage message = new SimpleMailMessage();
         message.setTo(email);
-        message.setFrom(forgotMailFrom);
+        message.setFrom(from);
         message.setSubject("MySoftPOS password reset code");
         message.setText(buildForgotMailBody(user, code));
 
         try {
             mailSender.send(message);
         } catch (Exception e) {
-            throw new RuntimeException("Unable to send verification email");
+            log.warn("Failed to send forgot-password email to {}: {}", email, e.getMessage());
+            throw new RuntimeException("Unable to send verification email. Please contact support.");
         }
     }
 
