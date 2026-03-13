@@ -65,4 +65,17 @@ public class User {
 
     @Column
     private LocalDateTime lastActiveAt;
+
+    @Column(length = 255)
+    private String forgotPasswordCodeHash;
+
+    @Column
+    private LocalDateTime forgotPasswordCodeExpiresAt;
+
+    @Column
+    private LocalDateTime forgotPasswordCodeVerifiedAt;
+
+    @Column(nullable = false)
+    @Builder.Default
+    private int forgotPasswordCodeAttempts = 0;
 }

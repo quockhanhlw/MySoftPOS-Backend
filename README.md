@@ -15,6 +15,15 @@ Backend **không** nên chứa secret thật trong file được commit. Các bi
 - `SPRING_JPA_SHOW_SQL` - `true` hoặc `false`
 - `SPRING_JPA_DATABASE_PLATFORM` - mặc định `org.hibernate.dialect.MySQLDialect`
 - `APP_JWT_SECRET` - secret JWT đủ dài, chỉ cấu hình qua env
+- `SPRING_MAIL_HOST` - SMTP host để gửi OTP qua email
+- `SPRING_MAIL_PORT` - SMTP port (thường 587)
+- `SPRING_MAIL_USERNAME` - SMTP username/email gửi
+- `SPRING_MAIL_PASSWORD` - SMTP password/app-password
+- `SPRING_MAIL_SMTP_AUTH` - bật/tắt SMTP auth (`true`/`false`)
+- `SPRING_MAIL_SMTP_STARTTLS_ENABLE` - bật/tắt STARTTLS (`true`/`false`)
+- `APP_FORGOT_PASSWORD_MAIL_FROM` - địa chỉ From cho email OTP
+- `APP_FORGOT_PASSWORD_CODE_EXPIRATION_MINUTES` - thời gian hết hạn OTP
+- `APP_FORGOT_PASSWORD_MAX_VERIFY_ATTEMPTS` - số lần nhập sai OTP tối đa
 
 ## Render + Aiven
 

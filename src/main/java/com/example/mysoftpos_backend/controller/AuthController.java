@@ -44,4 +44,31 @@ public class AuthController {
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(Map.of("error", e.getMessage()));
         }
     }
+
+    @PostMapping("/forgot-password/request-code")
+    public ResponseEntity<?> requestForgotPasswordCode(@Valid @RequestBody ForgotPasswordRequest req) {
+        try {
+            return ResponseEntity.ok(authService.requestForgotPasswordCode(req));
+        } catch (RuntimeException e) {
+            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
+        }
+    }
+
+    @PostMapping("/forgot-password/verify-code")
+    public ResponseEntity<?> verifyForgotPasswordCode(@Valid @RequestBody ForgotPasswordVerifyCodeRequest req) {
+        try {
+            return ResponseEntity.ok(authService.verifyForgotPasswordCode(req));
+        } catch (RuntimeException e) {
+            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
+        }
+    }
+
+    @PostMapping("/forgot-password/reset")
+    public ResponseEntity<?> resetForgotPassword(@Valid @RequestBody ForgotPasswordResetRequest req) {
+        try {
+            return ResponseEntity.ok(authService.resetForgotPassword(req));
+        } catch (RuntimeException e) {
+            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
+        }
+    }
 }

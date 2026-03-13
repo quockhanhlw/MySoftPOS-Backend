@@ -5,6 +5,18 @@ spring:
   application:
     name: mysoftpos-backend
 
+  mail:
+    host: ${SPRING_MAIL_HOST:smtp.example.com}
+    port: ${SPRING_MAIL_PORT:587}
+    username: ${SPRING_MAIL_USERNAME:YOUR_SMTP_USERNAME}
+    password: ${SPRING_MAIL_PASSWORD:YOUR_SMTP_PASSWORD}
+    properties:
+      mail:
+        smtp:
+          auth: ${SPRING_MAIL_SMTP_AUTH:true}
+          starttls:
+            enable: ${SPRING_MAIL_SMTP_STARTTLS_ENABLE:true}
+
   datasource:
     # Inject the real Aiven JDBC URL via env var.
     # Example: jdbc:mysql://YOUR_AIVEN_HOST:YOUR_AIVEN_PORT/YOUR_DATABASE?sslMode=REQUIRED&serverTimezone=UTC&allowPublicKeyRetrieval=true
@@ -26,6 +38,11 @@ app:
     secret: ${APP_JWT_SECRET:YOUR_LONG_RANDOM_JWT_SECRET}
     access-token-expiration: 3600000
     refresh-token-expiration: 604800000
+  auth:
+    forgot-password:
+      code-expiration-minutes: ${APP_FORGOT_PASSWORD_CODE_EXPIRATION_MINUTES:10}
+      max-verify-attempts: ${APP_FORGOT_PASSWORD_MAX_VERIFY_ATTEMPTS:5}
+      mail-from: ${APP_FORGOT_PASSWORD_MAIL_FROM:no-reply@mysoftpos.local}
 
 springdoc:
   api-docs:

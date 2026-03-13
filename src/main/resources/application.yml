@@ -5,6 +5,18 @@ spring:
   application:
     name: mysoftpos-backend
 
+  mail:
+    host: ${SPRING_MAIL_HOST:}
+    port: ${SPRING_MAIL_PORT:587}
+    username: ${SPRING_MAIL_USERNAME:}
+    password: ${SPRING_MAIL_PASSWORD:}
+    properties:
+      mail:
+        smtp:
+          auth: ${SPRING_MAIL_SMTP_AUTH:true}
+          starttls:
+            enable: ${SPRING_MAIL_SMTP_STARTTLS_ENABLE:true}
+
   datasource:
     url: ${SPRING_DATASOURCE_URL}
     driver-class-name: ${SPRING_DATASOURCE_DRIVER_CLASS_NAME:com.mysql.cj.jdbc.Driver}
@@ -32,6 +44,11 @@ app:
     secret: ${APP_JWT_SECRET}
     access-token-expiration: 3600000    # 1 hour
     refresh-token-expiration: 604800000 # 7 days
+  auth:
+    forgot-password:
+      code-expiration-minutes: ${APP_FORGOT_PASSWORD_CODE_EXPIRATION_MINUTES:10}
+      max-verify-attempts: ${APP_FORGOT_PASSWORD_MAX_VERIFY_ATTEMPTS:5}
+      mail-from: ${APP_FORGOT_PASSWORD_MAIL_FROM:${SPRING_MAIL_USERNAME:no-reply@mysoftpos.local}}
 
 springdoc:
   api-docs:
