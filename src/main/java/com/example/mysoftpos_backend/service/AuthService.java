@@ -13,6 +13,7 @@ import org.springframework.mail.javamail.JavaMailSender;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 
+import java.net.SocketTimeoutException;
 import java.time.LocalDateTime;
 import java.util.Map;
 import java.util.concurrent.ThreadLocalRandom;
@@ -288,9 +289,29 @@ public class AuthService {
         try {
             mailSender.send(message);
         } catch (Exception e) {
-            log.warn("Failed to send forgot-password email to {}: {}", email, e.getMessage());
+            // Keep full cause in logs for SMTP diagnosis (auth, TLS, network timeout, etc.).
+            log.warn("Failed to send forgot-password email to {}", email, e);
+            if (isTimeoutError(e)) {
+                throw new RuntimeException("Email service timed out. Please try again in a moment.");
+            }
             throw new RuntimeException("Unable to send verification email. Please contact support.");
         }
+    }
+
+    private boolean isTimeoutError(Throwable throwable) {
+        Throwable current = throwable;
+        while (current != null) {
+            if (current instanceof SocketTimeoutException
+                    || current instanceof java.util.concurrent.TimeoutException) {
+                return true;
+            }
+            String message = current.getMessage();
+            if (message != null && message.toLowerCase(java.util.Locale.ROOT).contains("timed out")) {
+                return true;
+            }
+            current = current.getCause();
+        }
+        return false;
     }
 
     private String buildForgotMailBody(User user, String code) {
