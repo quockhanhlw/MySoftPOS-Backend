@@ -11,9 +11,14 @@ Backend **không** nên chứa secret thật trong file được commit. Các bi
 - `SPRING_DATASOURCE_DRIVER_CLASS_NAME` - mặc định `com.mysql.cj.jdbc.Driver`
 - `SPRING_DATASOURCE_USERNAME` - user của Aiven
 - `SPRING_DATASOURCE_PASSWORD` - password của Aiven
-- `SPRING_JPA_HIBERNATE_DDL_AUTO` - ví dụ `update`
+- `SPRING_JPA_HIBERNATE_DDL_AUTO` - nên để `validate` khi dùng Flyway
 - `SPRING_JPA_SHOW_SQL` - `true` hoặc `false`
 - `SPRING_JPA_DATABASE_PLATFORM` - mặc định `org.hibernate.dialect.MySQLDialect`
+- `SPRING_FLYWAY_ENABLED` - bật Flyway (`true`)
+- `SPRING_FLYWAY_LOCATIONS` - mặc định `classpath:db/migration`
+- `SPRING_FLYWAY_BASELINE_ON_MIGRATE` - lần đầu deploy DB cũ: `true`; sau khi baseline xong: `false`
+- `SPRING_FLYWAY_BASELINE_VERSION` - mặc định `0`
+- `SPRING_FLYWAY_VALIDATE_ON_MIGRATE` - khuyến nghị `true`
 - `APP_JWT_SECRET` - secret JWT đủ dài, chỉ cấu hình qua env
 - `SPRING_MAIL_HOST` - SMTP host để gửi OTP qua email
 - `SPRING_MAIL_PORT` - SMTP port (thường 587)
@@ -57,6 +62,30 @@ app:
 ```powershell
 .\mvnw test
 .\mvnw clean package
+```
+
+## Flyway rollout
+
+Chạy precheck trước khi deploy migration constraints/index cho `merchants`:
+
+```sql
+-- scripts/precheck_merchants_constraints.sql
+```
+
+Lần chạy đầu trên production (DB đã có data nhưng chưa có `flyway_schema_history`):
+
+```powershell
+$env:SPRING_JPA_HIBERNATE_DDL_AUTO="validate"
+$env:SPRING_FLYWAY_ENABLED="true"
+$env:SPRING_FLYWAY_BASELINE_ON_MIGRATE="true"
+.\mvnw spring-boot:run
+```
+
+Sau khi baseline thành công, khóa lại baseline-on-migrate:
+
+```powershell
+$env:SPRING_FLYWAY_BASELINE_ON_MIGRATE="false"
+.\mvnw spring-boot:run
 ```
 
 ## Docker

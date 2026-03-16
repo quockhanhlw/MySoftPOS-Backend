@@ -13,6 +13,12 @@ public class UserDto {
     private String fullName;
     private String phone;
     private String email;
+    private String dob;
+    private String gender;
+    private String storeName;
+    private String businessType;
+    private String storeAddress;
+    private Boolean phoneVerified;
     private String terminalId;
     private String serverIp;
     private Integer serverPort;

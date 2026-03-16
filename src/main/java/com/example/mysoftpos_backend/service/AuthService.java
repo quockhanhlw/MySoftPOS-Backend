@@ -1,7 +1,9 @@
 package com.example.mysoftpos_backend.service;
 
 import com.example.mysoftpos_backend.dto.*;
+import com.example.mysoftpos_backend.entity.Merchant;
 import com.example.mysoftpos_backend.entity.User;
+import com.example.mysoftpos_backend.repository.MerchantRepository;
 import com.example.mysoftpos_backend.repository.UserRepository;
 import com.example.mysoftpos_backend.security.JwtTokenProvider;
 import lombok.RequiredArgsConstructor;
@@ -16,6 +18,7 @@ import org.springframework.stereotype.Service;
 import java.net.SocketTimeoutException;
 import java.time.LocalDateTime;
 import java.util.Map;
+import java.util.Locale;
 import java.util.concurrent.ThreadLocalRandom;
 
 @Service
@@ -23,11 +26,15 @@ import java.util.concurrent.ThreadLocalRandom;
 public class AuthService {
     private static final Logger log = LoggerFactory.getLogger(AuthService.class);
     private static final String ADMIN_ROLE = "ADMIN";
+    private static final String USER_ROLE = "USER";
     private static final int MAX_FAILED_ATTEMPTS = 6;
     private static final int LOCKOUT_MINUTES = 30;
     private static final int MIN_PASSWORD_LENGTH = 8;
+    private static final int FORGOT_EMAIL_MAX_SEND_ATTEMPTS = 2;
+    private static final long FORGOT_EMAIL_RETRY_DELAY_MS = 1200L;
 
     private final UserRepository userRepo;
+    private final MerchantRepository merchantRepo;
     private final PasswordEncoder passwordEncoder;
     private final JwtTokenProvider jwtProvider;
     private final JavaMailSender mailSender;
@@ -48,13 +55,14 @@ public class AuthService {
     private String mailUsername;
 
     public LoginResponse register(RegisterRequest req) {
-        if (userRepo.existsByRole(ADMIN_ROLE)) {
-            throw new RuntimeException("An admin account already exists. Please sign in.");
-        }
-
         String phone = normalizePhone(req.getPhone());
         String email = normalizeEmail(req.getEmail());
         String fullName = normalizeText(req.getFullName());
+        String dob = normalizeText(req.getDob());
+        String gender = normalizeText(req.getGender());
+        String storeName = normalizeText(req.getStoreName());
+        String businessType = normalizeBusinessType(req.getBusinessType());
+        String storeAddress = normalizeText(req.getStoreAddress());
 
         if (userRepo.existsByPhone(phone)) {
             throw new RuntimeException("Phone number already registered");
@@ -62,15 +70,31 @@ public class AuthService {
         if (email != null && userRepo.existsByEmail(email)) {
             throw new RuntimeException("Email already registered");
         }
+        if (req.getPassword() == null || req.getPassword().length() < MIN_PASSWORD_LENGTH) {
+            throw new RuntimeException("Password must be at least " + MIN_PASSWORD_LENGTH + " characters");
+        }
 
         User user = User.builder()
                 .phone(phone)
                 .passwordHash(passwordEncoder.encode(req.getPassword()))
-                .role(ADMIN_ROLE)
+                .role(USER_ROLE)
                 .fullName(fullName)
                 .email(email)
+                .dob(dob)
+                .gender(gender)
+                .phoneVerified(true)
                 .build();
-        userRepo.save(user);
+        user = userRepo.save(user);
+
+        Merchant merchant = Merchant.builder()
+                .merchantCode(generateMerchantCode(phone, user.getId()))
+                .merchantName(storeName != null ? storeName : fullName)
+                .adminId(null)
+                .ownerUserId(user.getId())
+                .businessType(businessType)
+                .storeAddress(storeAddress)
+                .build();
+        merchantRepo.save(merchant);
 
         return buildLoginResponse(user);
     }
@@ -139,7 +163,7 @@ public class AuthService {
         userRepo.save(user);
 
         try {
-            sendForgotPasswordEmail(user, code);
+            sendForgotPasswordEmailWithRetry(user, code);
         } catch (RuntimeException ex) {
             // Avoid keeping a fresh OTP when delivery fails.
             clearForgotPasswordState(user);
@@ -179,6 +203,7 @@ public class AuthService {
     private LoginResponse buildLoginResponse(User user) {
         String accessToken = jwtProvider.generateAccessToken(user.getPhone(), user.getRole());
         String refreshToken = jwtProvider.generateRefreshToken(user.getPhone());
+        Merchant merchant = merchantRepo.findByOwnerUserId(user.getId()).orElse(null);
 
         UserDto dto = UserDto.builder()
                 .id(user.getId())
@@ -186,6 +211,12 @@ public class AuthService {
                 .fullName(user.getFullName())
                 .phone(user.getPhone())
                 .email(user.getEmail())
+                .dob(user.getDob())
+                .gender(user.getGender())
+                .storeName(merchant != null ? merchant.getMerchantName() : null)
+                .businessType(merchant != null ? merchant.getBusinessType() : null)
+                .storeAddress(merchant != null ? merchant.getStoreAddress() : null)
+                .phoneVerified(user.isPhoneVerified())
                 .terminalId(user.getTerminalId())
                 .serverIp(user.getServerIp())
                 .serverPort(user.getServerPort())
@@ -204,7 +235,11 @@ public class AuthService {
     }
 
     private String normalizePhone(String value) {
-        return normalizeIdentifier(value);
+        String normalized = normalizeIdentifier(value).replaceAll("[\\s()-]", "");
+        if (normalized.startsWith("00")) {
+            return "+" + normalized.substring(2);
+        }
+        return normalized;
     }
 
     private String normalizeEmail(String value) {
@@ -215,6 +250,41 @@ public class AuthService {
     private String normalizeText(String value) {
         String normalized = normalizeIdentifier(value);
         return normalized.isEmpty() ? null : normalized;
+    }
+
+    private String normalizeBusinessType(String value) {
+        String normalized = normalizeText(value);
+        if (normalized == null) {
+            return null;
+        }
+        if (normalized.matches("^\\d{4}$")) {
+            return normalized;
+        }
+        String fromPrefix = normalized.replace('\u2013', '-').replace(':', '-')
+                .replaceAll("\\s+", " ");
+        java.util.regex.Matcher matcher = java.util.regex.Pattern.compile("^(\\d{4})\\s*-\\s*.+$")
+                .matcher(fromPrefix);
+        if (matcher.matches()) {
+            return matcher.group(1);
+        }
+        return null;
+    }
+
+    private String generateMerchantCode(String phone, Long userId) {
+        String suffix = phone == null ? "0000" : phone.replaceAll("\\D", "");
+        if (suffix.length() > 4) {
+            suffix = suffix.substring(suffix.length() - 4);
+        }
+        while (suffix.length() < 4) {
+            suffix = "0" + suffix;
+        }
+        long uid = userId != null ? userId : System.currentTimeMillis() % 10_000;
+        String candidate = String.format(Locale.ROOT, "M%06d%s", uid % 1_000_000, suffix);
+        if (!merchantRepo.existsByMerchantCode(candidate)) {
+            return candidate;
+        }
+        String fallback = String.format(Locale.ROOT, "M%010d", Math.abs(System.currentTimeMillis() % 10_000_000_000L));
+        return fallback.length() > 15 ? fallback.substring(0, 15) : fallback;
     }
 
     private User getUserForForgotPassword(String rawEmail) {
@@ -262,6 +332,28 @@ public class AuthService {
     private String generateResetCode() {
         int value = ThreadLocalRandom.current().nextInt(0, 1_000_000);
         return String.format(java.util.Locale.ROOT, "%06d", value);
+    }
+
+    private void sendForgotPasswordEmailWithRetry(User user, String code) {
+        RuntimeException lastException = null;
+        for (int attempt = 1; attempt <= FORGOT_EMAIL_MAX_SEND_ATTEMPTS; attempt++) {
+            try {
+                sendForgotPasswordEmail(user, code);
+                return;
+            } catch (RuntimeException ex) {
+                lastException = ex;
+                if (!isTimeoutMessage(ex.getMessage()) || attempt >= FORGOT_EMAIL_MAX_SEND_ATTEMPTS) {
+                    throw ex;
+                }
+                log.warn("Retry forgot-password email send attempt {}/{} for {} after timeout",
+                        attempt + 1, FORGOT_EMAIL_MAX_SEND_ATTEMPTS, user.getEmail());
+                sleepQuietly(FORGOT_EMAIL_RETRY_DELAY_MS);
+            }
+        }
+
+        if (lastException != null) {
+            throw lastException;
+        }
     }
 
     private void sendForgotPasswordEmail(User user, String code) {
@@ -312,6 +404,18 @@ public class AuthService {
             current = current.getCause();
         }
         return false;
+    }
+
+    private boolean isTimeoutMessage(String message) {
+        return message != null && message.toLowerCase(java.util.Locale.ROOT).contains("timed out");
+    }
+
+    private void sleepQuietly(long delayMs) {
+        try {
+            Thread.sleep(delayMs);
+        } catch (InterruptedException interruptedException) {
+            Thread.currentThread().interrupt();
+        }
     }
 
     private String buildForgotMailBody(User user, String code) {

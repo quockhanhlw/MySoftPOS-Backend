@@ -18,7 +18,17 @@ public class Merchant {
     @Column(length = 100)
     private String merchantName; // DE 43
 
-    /** Admin who owns this merchant */
-    @Column(nullable = false)
+    /** Admin who manages this merchant (nullable for self-registered merchant users) */
+    @Column
     private Long adminId;
+
+    /** USER account that owns this merchant profile */
+    @Column(name = "owner_user_id", unique = true)
+    private Long ownerUserId;
+
+    @Column(length = 4)
+    private String businessType;
+
+    @Column(length = 255)
+    private String storeAddress;
 }

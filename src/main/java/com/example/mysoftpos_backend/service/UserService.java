@@ -2,7 +2,9 @@ package com.example.mysoftpos_backend.service;
 
 import com.example.mysoftpos_backend.dto.CreateUserRequest;
 import com.example.mysoftpos_backend.dto.UserDto;
+import com.example.mysoftpos_backend.entity.Merchant;
 import com.example.mysoftpos_backend.entity.User;
+import com.example.mysoftpos_backend.repository.MerchantRepository;
 import com.example.mysoftpos_backend.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -16,6 +18,7 @@ import java.util.stream.Collectors;
 public class UserService {
 
     private final UserRepository userRepo;
+    private final MerchantRepository merchantRepo;
     private final PasswordEncoder passwordEncoder;
 
     public List<UserDto> getUsersByAdmin(Long adminId) {
@@ -44,12 +47,27 @@ public class UserService {
                 .role("USER")
                 .fullName(fullName)
                 .email(email)
+                .dob(normalizeText(req.getDob()))
+                .gender(normalizeText(req.getGender()))
+                .phoneVerified(true)
                 .terminalId(normalizeText(req.getTerminalId()))
                 .serverIp(normalizeText(req.getServerIp()))
                 .serverPort(req.getServerPort())
                 .adminId(adminId)
                 .build();
-        userRepo.save(user);
+        user = userRepo.save(user);
+
+        Merchant merchant = Merchant.builder()
+                .merchantCode(generateMerchantCode(user.getId(), phone))
+                .merchantName(normalizeText(req.getStoreName()) != null
+                        ? normalizeText(req.getStoreName())
+                        : fullName)
+                .adminId(adminId)
+                .ownerUserId(user.getId())
+                .businessType(normalizeBusinessType(req.getBusinessType()))
+                .storeAddress(normalizeText(req.getStoreAddress()))
+                .build();
+        merchantRepo.save(merchant);
         return toDto(user);
     }
 
@@ -83,10 +101,25 @@ public class UserService {
             user.setServerIp(normalizeText(req.getServerIp()));
         if (req.getServerPort() != null)
             user.setServerPort(req.getServerPort());
+        if (req.getDob() != null)
+            user.setDob(normalizeText(req.getDob()));
+        if (req.getGender() != null)
+            user.setGender(normalizeText(req.getGender()));
         if (req.getPassword() != null && !req.getPassword().isEmpty()) {
             user.setPasswordHash(passwordEncoder.encode(req.getPassword()));
         }
         userRepo.save(user);
+
+        Merchant merchant = merchantRepo.findByOwnerUserId(user.getId()).orElse(null);
+        if (merchant != null) {
+            if (req.getStoreName() != null)
+                merchant.setMerchantName(normalizeText(req.getStoreName()));
+            if (req.getBusinessType() != null)
+                merchant.setBusinessType(normalizeBusinessType(req.getBusinessType()));
+            if (req.getStoreAddress() != null)
+                merchant.setStoreAddress(normalizeText(req.getStoreAddress()));
+            merchantRepo.save(merchant);
+        }
         return toDto(user);
     }
 
@@ -96,6 +129,7 @@ public class UserService {
         if (!adminId.equals(user.getAdminId())) {
             throw new RuntimeException("Access denied");
         }
+        merchantRepo.deleteByOwnerUserId(user.getId());
         userRepo.delete(user);
     }
 
@@ -112,6 +146,7 @@ public class UserService {
     }
 
     private UserDto toDto(User u) {
+        Merchant merchant = merchantRepo.findByOwnerUserId(u.getId()).orElse(null);
         boolean isOnline = u.getLastActiveAt() != null &&
                 u.getLastActiveAt().isAfter(java.time.LocalDateTime.now().minusMinutes(5));
 
@@ -121,12 +156,47 @@ public class UserService {
                 .fullName(u.getFullName())
                 .phone(u.getPhone())
                 .email(u.getEmail())
+                .dob(u.getDob())
+                .gender(u.getGender())
+                .storeName(merchant != null ? merchant.getMerchantName() : null)
+                .businessType(merchant != null ? merchant.getBusinessType() : null)
+                .storeAddress(merchant != null ? merchant.getStoreAddress() : null)
+                .phoneVerified(u.isPhoneVerified())
                 .terminalId(u.getTerminalId())
                 .serverIp(u.getServerIp())
                 .serverPort(u.getServerPort())
                 .active(u.isActive())
                 .online(isOnline)
                 .build();
+    }
+
+    private String normalizeBusinessType(String value) {
+        String normalized = normalizeText(value);
+        if (normalized == null) {
+            return null;
+        }
+        if (normalized.matches("^\\d{4}$")) {
+            return normalized;
+        }
+        String fromPrefix = normalized.replace('\u2013', '-').replace(':', '-')
+                .replaceAll("\\s+", " ");
+        java.util.regex.Matcher matcher = java.util.regex.Pattern.compile("^(\\d{4})\\s*-\\s*.+$")
+                .matcher(fromPrefix);
+        return matcher.matches() ? matcher.group(1) : null;
+    }
+
+    private String generateMerchantCode(Long userId, String phone) {
+        String digits = phone == null ? "" : phone.replaceAll("\\D", "");
+        String suffix = digits.length() > 4 ? digits.substring(digits.length() - 4) : digits;
+        while (suffix.length() < 4) {
+            suffix = "0" + suffix;
+        }
+        long uid = userId != null ? userId : System.currentTimeMillis() % 1_000_000;
+        String candidate = String.format(java.util.Locale.ROOT, "M%06d%s", uid % 1_000_000, suffix);
+        if (!merchantRepo.existsByMerchantCode(candidate)) {
+            return candidate;
+        }
+        return String.format(java.util.Locale.ROOT, "M%010d", Math.abs(System.currentTimeMillis() % 10_000_000_000L));
     }
 
     private String normalizePhone(String value) {

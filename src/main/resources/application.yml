@@ -17,9 +17,10 @@ spring:
           starttls:
             enable: ${SPRING_MAIL_SMTP_STARTTLS_ENABLE:true}
           # Keep SMTP operations bounded to avoid API timeout when provider/network is slow.
-          connectiontimeout: ${SPRING_MAIL_SMTP_CONNECTION_TIMEOUT:10000}
-          timeout: ${SPRING_MAIL_SMTP_TIMEOUT:10000}
-          writetimeout: ${SPRING_MAIL_SMTP_WRITE_TIMEOUT:10000}
+          connectiontimeout: ${SPRING_MAIL_SMTP_CONNECTION_TIMEOUT:30000}
+          timeout: ${SPRING_MAIL_SMTP_TIMEOUT:30000}
+          writetimeout: ${SPRING_MAIL_SMTP_WRITE_TIMEOUT:30000}
+          quitwait: ${SPRING_MAIL_SMTP_QUITWAIT:false}
 
   datasource:
     url: ${SPRING_DATASOURCE_URL}
@@ -40,8 +41,14 @@ spring:
         format_sql: true
         default_batch_fetch_size: 20
     hibernate:
-      ddl-auto: ${SPRING_JPA_HIBERNATE_DDL_AUTO:update}
+      ddl-auto: ${SPRING_JPA_HIBERNATE_DDL_AUTO:validate}
     database-platform: ${SPRING_JPA_DATABASE_PLATFORM:org.hibernate.dialect.MySQLDialect}
+  flyway:
+    enabled: ${SPRING_FLYWAY_ENABLED:true}
+    locations: ${SPRING_FLYWAY_LOCATIONS:classpath:db/migration}
+    baseline-on-migrate: ${SPRING_FLYWAY_BASELINE_ON_MIGRATE:true}
+    baseline-version: ${SPRING_FLYWAY_BASELINE_VERSION:0}
+    validate-on-migrate: ${SPRING_FLYWAY_VALIDATE_ON_MIGRATE:true}
 
 app:
   jwt:

@@ -7,6 +7,8 @@ import java.util.Optional;
 
 public interface MerchantRepository extends JpaRepository<Merchant, Long> {
     List<Merchant> findByAdminId(Long adminId);
+    Optional<Merchant> findByOwnerUserId(Long ownerUserId);
     Optional<Merchant> findByMerchantCode(String merchantCode);
     boolean existsByMerchantCode(String merchantCode);
+    void deleteByOwnerUserId(Long ownerUserId);
 }

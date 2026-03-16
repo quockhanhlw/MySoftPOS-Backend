@@ -33,6 +33,16 @@ public class User {
     @Column(length = 100)
     private String email;
 
+    @Column(length = 20)
+    private String dob;
+
+    @Column(length = 20)
+    private String gender;
+
+    @Column(nullable = false)
+    @Builder.Default
+    private boolean phoneVerified = true;
+
     /** The admin who created this user (null if self-registered) */
     @Column
     private Long adminId;

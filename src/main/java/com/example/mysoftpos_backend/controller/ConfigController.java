@@ -15,6 +15,7 @@ import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.stream.Collectors;
 
 @RestController
@@ -53,10 +54,12 @@ public class ConfigController {
                                             @PathVariable Long id,
                                             @RequestBody Map<String, String> body) {
         Merchant m = merchantRepo.findById(id).orElse(null);
-        if (m == null || !m.getAdminId().equals(admin.getId())) {
+        if (m == null || !Objects.equals(m.getAdminId(), admin.getId())) {
             return ResponseEntity.badRequest().body(Map.of("error", "Not found or access denied"));
         }
         if (body.containsKey("merchantName")) m.setMerchantName(body.get("merchantName"));
+        if (body.containsKey("businessType")) m.setBusinessType(body.get("businessType"));
+        if (body.containsKey("storeAddress")) m.setStoreAddress(body.get("storeAddress"));
         merchantRepo.save(m);
         return ResponseEntity.ok(toMerchantDto(m));
     }
@@ -76,7 +79,7 @@ public class ConfigController {
             return ResponseEntity.badRequest().body(Map.of("error", "Terminal code already exists"));
         }
         Merchant merchant = merchantRepo.findById(Long.parseLong(body.get("merchantId"))).orElse(null);
-        if (merchant == null || !merchant.getAdminId().equals(admin.getId())) {
+        if (merchant == null || !Objects.equals(merchant.getAdminId(), admin.getId())) {
             return ResponseEntity.badRequest().body(Map.of("error", "Merchant not found or access denied"));
         }
         Terminal t = Terminal.builder()
@@ -94,7 +97,7 @@ public class ConfigController {
                                             @PathVariable Long id,
                                             @RequestBody Map<String, String> body) {
         Terminal t = terminalRepo.findById(id).orElse(null);
-        if (t == null || !t.getMerchant().getAdminId().equals(admin.getId())) {
+        if (t == null || !Objects.equals(t.getMerchant().getAdminId(), admin.getId())) {
             return ResponseEntity.badRequest().body(Map.of("error", "Not found or access denied"));
         }
         if (body.containsKey("serverIp")) t.setServerIp(body.get("serverIp"));
@@ -111,6 +114,9 @@ public class ConfigController {
                 .merchantCode(m.getMerchantCode())
                 .merchantName(m.getMerchantName())
                 .adminId(m.getAdminId())
+                .ownerUserId(m.getOwnerUserId())
+                .businessType(m.getBusinessType())
+                .storeAddress(m.getStoreAddress())
                 .build();
     }
 

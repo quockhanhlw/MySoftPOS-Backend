@@ -8,5 +8,8 @@ public class MerchantDto {
     private String merchantCode;
     private String merchantName;
     private Long adminId;
+    private Long ownerUserId;
+    private String businessType;
+    private String storeAddress;
 }
 
