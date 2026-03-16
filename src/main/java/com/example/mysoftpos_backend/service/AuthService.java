@@ -200,6 +200,31 @@ public class AuthService {
         return Map.of("message", "Password reset successfully");
     }
 
+    public Map<String, String> changePassword(User currentUser, ChangePasswordRequest req) {
+        if (currentUser == null || currentUser.getId() == null) {
+            throw new RuntimeException("Unauthorized");
+        }
+        if (!req.getNewPassword().equals(req.getConfirmPassword())) {
+            throw new RuntimeException("Password confirmation does not match");
+        }
+        if (req.getNewPassword().length() < MIN_PASSWORD_LENGTH) {
+            throw new RuntimeException("Password must be at least " + MIN_PASSWORD_LENGTH + " characters");
+        }
+
+        User user = userRepo.findById(currentUser.getId())
+                .orElseThrow(() -> new RuntimeException("User not found"));
+
+        if (!passwordEncoder.matches(req.getCurrentPassword(), user.getPasswordHash())) {
+            throw new RuntimeException("Current password is incorrect");
+        }
+
+        user.setPasswordHash(passwordEncoder.encode(req.getNewPassword()));
+        user.setFailedLoginAttempts(0);
+        user.setLockedUntil(null);
+        userRepo.save(user);
+        return Map.of("message", "Password changed successfully");
+    }
+
     private LoginResponse buildLoginResponse(User user) {
         String accessToken = jwtProvider.generateAccessToken(user.getPhone(), user.getRole());
         String refreshToken = jwtProvider.generateRefreshToken(user.getPhone());

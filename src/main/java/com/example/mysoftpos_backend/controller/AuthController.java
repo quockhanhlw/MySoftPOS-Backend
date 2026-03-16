@@ -1,11 +1,13 @@
 package com.example.mysoftpos_backend.controller;
 
 import com.example.mysoftpos_backend.dto.*;
+import com.example.mysoftpos_backend.entity.User;
 import com.example.mysoftpos_backend.service.AuthService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.Map;
@@ -67,6 +69,16 @@ public class AuthController {
     public ResponseEntity<?> resetForgotPassword(@Valid @RequestBody ForgotPasswordResetRequest req) {
         try {
             return ResponseEntity.ok(authService.resetForgotPassword(req));
+        } catch (RuntimeException e) {
+            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
+        }
+    }
+
+    @PutMapping("/change-password")
+    public ResponseEntity<?> changePassword(@AuthenticationPrincipal User user,
+                                            @Valid @RequestBody ChangePasswordRequest req) {
+        try {
+            return ResponseEntity.ok(authService.changePassword(user, req));
         } catch (RuntimeException e) {
             return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
         }
