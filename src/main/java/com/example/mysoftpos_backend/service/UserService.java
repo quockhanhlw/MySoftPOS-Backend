@@ -18,6 +18,7 @@ import java.util.stream.Collectors;
 public class UserService {
 
     private static final java.util.regex.Pattern TID_PATTERN = java.util.regex.Pattern.compile("^[A-Z0-9]{8}$");
+    private static final java.util.regex.Pattern BANK_NAME_PATTERN = java.util.regex.Pattern.compile("^[A-Z0-9]{2,22}$");
 
     private final UserRepository userRepo;
     private final MerchantRepository merchantRepo;
@@ -76,6 +77,7 @@ public class UserService {
                     .merchantName(normalizeText(req.getStoreName()) != null
                             ? normalizeText(req.getStoreName())
                             : fullName)
+                    .bankName(normalizeBankName(req.getBankName()))
                     .adminId(adminId)
                     .ownerUserId(user.getId())
                     .businessType(normalizeBusinessType(req.getBusinessType()))
@@ -144,6 +146,8 @@ public class UserService {
         if (merchant != null) {
             if (req.getStoreName() != null)
                 merchant.setMerchantName(normalizeText(req.getStoreName()));
+            if (req.getBankName() != null)
+                merchant.setBankName(normalizeBankName(req.getBankName()));
             if (req.getBusinessType() != null)
                 merchant.setBusinessType(normalizeBusinessType(req.getBusinessType()));
             if (req.getStoreAddress() != null)
@@ -196,6 +200,7 @@ public class UserService {
                 .dob(u.getDob())
                 .gender(u.getGender())
                 .storeName(merchant != null ? merchant.getMerchantName() : null)
+                .bankName(merchant != null ? merchant.getBankName() : null)
                 .businessType(merchant != null ? merchant.getBusinessType() : null)
                 .storeAddress(merchant != null ? merchant.getStoreAddress() : null)
                 .phoneVerified(u.isPhoneVerified())
@@ -220,6 +225,18 @@ public class UserService {
         java.util.regex.Matcher matcher = java.util.regex.Pattern.compile("^(\\d{4})\\s*-\\s*.+$")
                 .matcher(fromPrefix);
         return matcher.matches() ? matcher.group(1) : null;
+    }
+
+    private String normalizeBankName(String value) {
+        String normalized = normalizeText(value);
+        if (normalized == null) {
+            return null;
+        }
+        normalized = normalized.toUpperCase(java.util.Locale.ROOT);
+        if (!BANK_NAME_PATTERN.matcher(normalized).matches()) {
+            throw new RuntimeException("Bank name must be 2-22 characters using A-Z and 0-9 only");
+        }
+        return normalized;
     }
 
     private String generateMerchantCode(Long userId, String phone) {

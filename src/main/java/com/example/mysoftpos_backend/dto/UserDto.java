@@ -18,6 +18,7 @@ public class UserDto {
     private String dob;
     private String gender;
     private String storeName;
+    private String bankName;
     private String businessType;
     private String storeAddress;
     private Boolean phoneVerified;

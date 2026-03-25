@@ -18,6 +18,9 @@ public class Merchant {
     @Column(length = 100)
     private String merchantName; // DE 43
 
+    @Column(name = "bank_name", length = 22)
+    private String bankName;
+
     /** Admin who manages this merchant (nullable for self-registered merchant users) */
     @Column
     private Long adminId;

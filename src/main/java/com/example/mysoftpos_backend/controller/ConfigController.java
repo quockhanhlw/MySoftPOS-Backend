@@ -25,6 +25,8 @@ import java.util.stream.Collectors;
 @RequiredArgsConstructor
 public class ConfigController {
 
+    private static final java.util.regex.Pattern BANK_NAME_PATTERN = java.util.regex.Pattern.compile("^[A-Z0-9]{2,22}$");
+
     private final MerchantRepository merchantRepo;
     private final TerminalRepository terminalRepo;
     private final UserRepository userRepo;
@@ -43,9 +45,16 @@ public class ConfigController {
         if (merchantRepo.existsByMerchantCode(body.get("merchantCode"))) {
             return ResponseEntity.badRequest().body(Map.of("error", "Merchant code already exists"));
         }
+        final String bankName;
+        try {
+            bankName = normalizeBankName(body.get("bankName"));
+        } catch (IllegalArgumentException ex) {
+            return ResponseEntity.badRequest().body(Map.of("error", ex.getMessage()));
+        }
         Merchant m = Merchant.builder()
                 .merchantCode(body.get("merchantCode"))
                 .merchantName(body.get("merchantName"))
+                .bankName(bankName)
                 .adminId(admin.getId())
                 .build();
         merchantRepo.save(m);
@@ -61,6 +70,13 @@ public class ConfigController {
             return ResponseEntity.badRequest().body(Map.of("error", "Not found or access denied"));
         }
         if (body.containsKey("merchantName")) m.setMerchantName(body.get("merchantName"));
+        if (body.containsKey("bankName")) {
+            try {
+                m.setBankName(normalizeBankName(body.get("bankName")));
+            } catch (IllegalArgumentException ex) {
+                return ResponseEntity.badRequest().body(Map.of("error", ex.getMessage()));
+            }
+        }
         if (body.containsKey("businessType")) m.setBusinessType(body.get("businessType"));
         if (body.containsKey("storeAddress")) m.setStoreAddress(body.get("storeAddress"));
         merchantRepo.save(m);
@@ -129,6 +145,7 @@ public class ConfigController {
                 .id(m.getId())
                 .merchantCode(m.getMerchantCode())
                 .merchantName(m.getMerchantName())
+                .bankName(m.getBankName())
                 .adminId(m.getAdminId())
                 .ownerUserId(m.getOwnerUserId())
                 .businessType(m.getBusinessType())
@@ -158,6 +175,7 @@ public class ConfigController {
                 .dob(user.getDob())
                 .gender(user.getGender())
                 .storeName(merchant != null ? merchant.getMerchantName() : null)
+                .bankName(merchant != null ? merchant.getBankName() : null)
                 .businessType(merchant != null ? merchant.getBusinessType() : null)
                 .storeAddress(merchant != null ? merchant.getStoreAddress() : null)
                 .phoneVerified(user.isPhoneVerified())
@@ -176,5 +194,19 @@ public class ConfigController {
                 .serverIp(t.getServerIp())
                 .serverPort(t.getServerPort())
                 .build();
+    }
+
+    private String normalizeBankName(String value) {
+        if (value == null) {
+            return null;
+        }
+        String normalized = value.trim().toUpperCase(java.util.Locale.ROOT);
+        if (normalized.isEmpty()) {
+            return null;
+        }
+        if (!BANK_NAME_PATTERN.matcher(normalized).matches()) {
+            throw new IllegalArgumentException("Bank name must be 2-22 characters using A-Z and 0-9 only");
+        }
+        return normalized;
     }
 }

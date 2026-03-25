@@ -37,6 +37,7 @@ public class AuthService {
     private static final int DEFAULT_ACCOUNT_COUNT = 1;
     private static final int MAX_ACCOUNT_COUNT = 500;
     private static final int MAX_BRANCH_COUNT = 50;
+    private static final java.util.regex.Pattern BANK_NAME_PATTERN = java.util.regex.Pattern.compile("^[A-Z0-9]{2,22}$");
 
     private final UserRepository userRepo;
     private final MerchantRepository merchantRepo;
@@ -66,6 +67,8 @@ public class AuthService {
         String dob = normalizeText(req.getDob());
         String gender = normalizeText(req.getGender());
         String storeName = normalizeText(req.getStoreName());
+        String bankName = normalizeBankName(req.getBankName());
+        validateBankNameOrThrow(bankName);
         String businessType = normalizeBusinessType(req.getBusinessType());
         String storeAddress = normalizeText(req.getStoreAddress());
         String branchAddresses = normalizeText(req.getBranchAddresses());
@@ -98,6 +101,7 @@ public class AuthService {
         Merchant merchant = Merchant.builder()
                 .merchantCode(generateMerchantCode(basePhone, user.getId()))
                 .merchantName(storeName != null ? storeName : fullName)
+                .bankName(bankName != null ? bankName : "MYSOFTPOS BANK")
                 .adminId(assignedAdminId)
                 .ownerUserId(user.getId())
                 .businessType(businessType)
@@ -262,6 +266,7 @@ public class AuthService {
                 .dob(user.getDob())
                 .gender(user.getGender())
                 .storeName(merchant != null ? merchant.getMerchantName() : null)
+                .bankName(merchant != null ? merchant.getBankName() : null)
                 .businessType(merchant != null ? merchant.getBusinessType() : null)
                 .storeAddress(merchant != null ? merchant.getStoreAddress() : null)
                 .phoneVerified(user.isPhoneVerified())
@@ -444,6 +449,23 @@ public class AuthService {
             return matcher.group(1);
         }
         return null;
+    }
+
+    private String normalizeBankName(String value) {
+        if (value == null) {
+            return null;
+        }
+        String normalized = value.trim().toUpperCase(Locale.ROOT);
+        if (normalized.isEmpty()) {
+            return null;
+        }
+        return normalized;
+    }
+
+    private void validateBankNameOrThrow(String bankName) {
+        if (bankName == null || !BANK_NAME_PATTERN.matcher(bankName).matches()) {
+            throw new RuntimeException("Bank name must be 2-22 characters using A-Z and 0-9 only");
+        }
     }
 
     private String generateMerchantCode(String phone, Long userId) {
