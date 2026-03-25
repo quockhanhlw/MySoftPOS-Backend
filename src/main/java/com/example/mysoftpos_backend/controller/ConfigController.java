@@ -150,6 +150,7 @@ public class ConfigController {
         return UserDto.builder()
                 .id(user.getId())
                 .merchantId(merchantId)
+                .merchantCode(merchant != null ? merchant.getMerchantCode() : null)
                 .role(user.getRole())
                 .fullName(user.getFullName())
                 .phone(user.getPhone())

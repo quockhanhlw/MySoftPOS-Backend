@@ -60,7 +60,7 @@ public class AuthService {
     private String mailUsername;
 
     public LoginResponse register(RegisterRequest req) {
-        String phone = normalizePhone(req.getPhone());
+        String basePhone = normalizePhone(req.getPhone());
         String email = normalizeEmail(req.getEmail());
         String fullName = normalizeText(req.getFullName());
         String dob = normalizeText(req.getDob());
@@ -72,10 +72,9 @@ public class AuthService {
         Integer branchCount = normalizeBranchCount(req.getBranchCount());
         int accountCount = normalizeAccountCount(req.getAccountCount());
         Long assignedAdminId = resolveAssignedAdminId();
+        List<String> accountPhones = buildMerchantAccountPhones(basePhone, accountCount);
 
-        if (userRepo.existsByPhone(phone)) {
-            throw new RuntimeException("Phone number already registered");
-        }
+        validateAccountPhonesAvailable(accountPhones);
         if (email != null && userRepo.existsByEmail(email)) {
             throw new RuntimeException("Email already registered");
         }
@@ -84,7 +83,7 @@ public class AuthService {
         }
 
         User user = User.builder()
-                .phone(phone)
+                .phone(accountPhones.get(0))
                 .passwordHash(passwordEncoder.encode(req.getPassword()))
                 .role(USER_ROLE)
                 .fullName(fullName)
@@ -97,7 +96,7 @@ public class AuthService {
         user = userRepo.save(user);
 
         Merchant merchant = Merchant.builder()
-                .merchantCode(generateMerchantCode(phone, user.getId()))
+                .merchantCode(generateMerchantCode(basePhone, user.getId()))
                 .merchantName(storeName != null ? storeName : fullName)
                 .adminId(assignedAdminId)
                 .ownerUserId(user.getId())
@@ -113,7 +112,7 @@ public class AuthService {
         userRepo.save(user);
 
         if (accountCount > 1) {
-            createAdditionalMerchantAccounts(req.getPassword(), user, merchant, assignedAdminId, accountCount - 1);
+            createAdditionalMerchantAccounts(req.getPassword(), user, merchant, assignedAdminId, accountPhones);
         }
 
         return buildLoginResponse(user);
@@ -255,6 +254,7 @@ public class AuthService {
         UserDto dto = UserDto.builder()
                 .id(user.getId())
                 .merchantId(user.getMerchantId())
+                .merchantCode(merchant != null ? merchant.getMerchantCode() : null)
                 .role(user.getRole())
                 .fullName(user.getFullName())
                 .phone(user.getPhone())
@@ -304,11 +304,10 @@ public class AuthService {
                                                   User primaryUser,
                                                   Merchant merchant,
                                                   Long assignedAdminId,
-                                                  int additionalCount) {
+                                                  List<String> accountPhones) {
         List<User> createdAccounts = new ArrayList<>();
-        for (int i = 0; i < additionalCount; i++) {
-            int accountIndex = i + 2;
-            String accountPhone = buildUniqueSubAccountPhone(primaryUser.getPhone(), accountIndex);
+        for (int accountIndex = 2; accountIndex <= accountPhones.size(); accountIndex++) {
+            String accountPhone = accountPhones.get(accountIndex - 1);
             String accountEmail = buildUniqueSubAccountEmail(primaryUser.getEmail(), accountIndex);
             String accountName = buildSubAccountName(primaryUser.getFullName(), accountIndex);
 
@@ -330,33 +329,37 @@ public class AuthService {
         userRepo.saveAll(createdAccounts);
     }
 
+    private List<String> buildMerchantAccountPhones(String basePhone, int accountCount) {
+        if (basePhone == null || basePhone.isBlank()) {
+            throw new RuntimeException("Phone number is required");
+        }
+
+        List<String> phones = new ArrayList<>();
+        for (int index = 1; index <= accountCount; index++) {
+            String candidate = basePhone + index;
+            if (candidate.length() > 20) {
+                throw new RuntimeException("Generated account phone exceeds max length");
+            }
+            phones.add(candidate);
+        }
+        return phones;
+    }
+
+    private void validateAccountPhonesAvailable(List<String> accountPhones) {
+        java.util.Set<String> unique = new java.util.LinkedHashSet<>(accountPhones);
+        if (unique.size() != accountPhones.size()) {
+            throw new RuntimeException("Generated account phones are duplicated");
+        }
+        for (String phone : unique) {
+            if (userRepo.existsByPhone(phone)) {
+                throw new RuntimeException("Phone number already registered: " + phone);
+            }
+        }
+    }
+
     private String buildSubAccountName(String fullName, int accountIndex) {
         String baseName = fullName == null || fullName.isBlank() ? "Merchant account" : fullName.trim();
         return baseName + " #" + accountIndex;
-    }
-
-    private String buildUniqueSubAccountPhone(String basePhone, int accountIndex) {
-        String digits = (basePhone == null ? "" : basePhone).replaceAll("\\D", "");
-        if (digits.isEmpty()) {
-            digits = String.valueOf(System.currentTimeMillis() % 1_000_000_000L);
-        }
-        if (digits.length() > 16) {
-            digits = digits.substring(digits.length() - 16);
-        }
-
-        for (int attempt = 0; attempt < 1000; attempt++) {
-            String suffix = String.format(Locale.ROOT, "%02d%02d", accountIndex % 100, attempt % 100);
-            String candidate = digits + suffix;
-            if (candidate.length() > 20) {
-                candidate = candidate.substring(candidate.length() - 20);
-            }
-            if (!userRepo.existsByPhone(candidate)) {
-                return candidate;
-            }
-        }
-
-        String fallback = String.valueOf(System.currentTimeMillis());
-        return fallback.length() > 20 ? fallback.substring(fallback.length() - 20) : fallback;
     }
 
     private String buildUniqueSubAccountEmail(String baseEmail, int accountIndex) {
@@ -390,7 +393,21 @@ public class AuthService {
     }
 
     private String normalizeIdentifier(String value) {
-        return value == null ? "" : value.trim();
+        String normalized = value == null ? "" : value.trim();
+        if (normalized.isEmpty()) {
+            return "";
+        }
+        if (normalized.contains("@")) {
+            return normalized.toLowerCase(Locale.ROOT);
+        }
+        normalized = normalized.replaceAll("[\\s()-]", "");
+        if (normalized.startsWith("00")) {
+            normalized = "+" + normalized.substring(2);
+        }
+        if (normalized.indexOf('+') > 0) {
+            normalized = normalized.replace("+", "");
+        }
+        return normalized;
     }
 
     private String normalizePhone(String value) {
@@ -437,13 +454,12 @@ public class AuthService {
         while (suffix.length() < 4) {
             suffix = "0" + suffix;
         }
-        long uid = userId != null ? userId : System.currentTimeMillis() % 10_000;
-        String candidate = String.format(Locale.ROOT, "M%06d%s", uid % 1_000_000, suffix);
+        long uid = userId != null ? userId : System.currentTimeMillis() % 10_000_000_000L;
+        String candidate = String.format(Locale.ROOT, "M%010d%s", uid % 10_000_000_000L, suffix);
         if (!merchantRepo.existsByMerchantCode(candidate)) {
             return candidate;
         }
-        String fallback = String.format(Locale.ROOT, "M%010d", Math.abs(System.currentTimeMillis() % 10_000_000_000L));
-        return fallback.length() > 15 ? fallback.substring(0, 15) : fallback;
+        return String.format(Locale.ROOT, "M%014d", Math.abs(System.currentTimeMillis() % 100_000_000_000_000L));
     }
 
     private User getUserForForgotPassword(String rawEmail) {

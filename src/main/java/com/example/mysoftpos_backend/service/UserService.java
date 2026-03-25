@@ -17,6 +17,8 @@ import java.util.stream.Collectors;
 @RequiredArgsConstructor
 public class UserService {
 
+    private static final java.util.regex.Pattern TID_PATTERN = java.util.regex.Pattern.compile("^[A-Z0-9]{8}$");
+
     private final UserRepository userRepo;
     private final MerchantRepository merchantRepo;
     private final PasswordEncoder passwordEncoder;
@@ -49,6 +51,7 @@ public class UserService {
         if (req.getPassword() == null || req.getPassword().isBlank()) {
             throw new RuntimeException("Password is required for new user");
         }
+        validateTerminalId(req.getTerminalId());
 
         User user = User.builder()
                 .phone(phone)
@@ -59,7 +62,7 @@ public class UserService {
                 .dob(normalizeText(req.getDob()))
                 .gender(normalizeText(req.getGender()))
                 .phoneVerified(true)
-                .terminalId(normalizeText(req.getTerminalId()))
+                .terminalId(normalizeTerminalId(req.getTerminalId()))
                 .serverIp(normalizeText(req.getServerIp()))
                 .serverPort(req.getServerPort())
                 .adminId(adminId)
@@ -93,6 +96,7 @@ public class UserService {
         if (!adminId.equals(user.getAdminId())) {
             throw new RuntimeException("Access denied");
         }
+        validateTerminalId(req.getTerminalId());
 
         if (req.getFullName() != null)
             user.setFullName(normalizeText(req.getFullName()));
@@ -112,7 +116,7 @@ public class UserService {
             user.setEmail(email);
         }
         if (req.getTerminalId() != null)
-            user.setTerminalId(normalizeText(req.getTerminalId()));
+            user.setTerminalId(normalizeTerminalId(req.getTerminalId()));
         if (req.getServerIp() != null)
             user.setServerIp(normalizeText(req.getServerIp()));
         if (req.getServerPort() != null)
@@ -184,6 +188,7 @@ public class UserService {
         return UserDto.builder()
                 .id(u.getId())
                 .merchantId(merchantId)
+                .merchantCode(merchant != null ? merchant.getMerchantCode() : null)
                 .role(u.getRole())
                 .fullName(u.getFullName())
                 .phone(u.getPhone())
@@ -223,12 +228,27 @@ public class UserService {
         while (suffix.length() < 4) {
             suffix = "0" + suffix;
         }
-        long uid = userId != null ? userId : System.currentTimeMillis() % 1_000_000;
-        String candidate = String.format(java.util.Locale.ROOT, "M%06d%s", uid % 1_000_000, suffix);
+        long uid = userId != null ? userId : System.currentTimeMillis() % 10_000_000_000L;
+        String candidate = String.format(java.util.Locale.ROOT, "M%010d%s", uid % 10_000_000_000L, suffix);
         if (!merchantRepo.existsByMerchantCode(candidate)) {
             return candidate;
         }
-        return String.format(java.util.Locale.ROOT, "M%010d", Math.abs(System.currentTimeMillis() % 10_000_000_000L));
+        return String.format(java.util.Locale.ROOT, "M%014d", Math.abs(System.currentTimeMillis() % 100_000_000_000_000L));
+    }
+
+    private void validateTerminalId(String terminalId) {
+        String normalized = normalizeTerminalId(terminalId);
+        if (normalized == null || normalized.isEmpty()) {
+            return;
+        }
+        if (!TID_PATTERN.matcher(normalized).matches()) {
+            throw new RuntimeException("Terminal ID (TID) must be exactly 8 uppercase letters/digits");
+        }
+    }
+
+    private String normalizeTerminalId(String value) {
+        String normalized = normalizeText(value);
+        return normalized == null ? null : normalized.toUpperCase(java.util.Locale.ROOT);
     }
 
     private String normalizePhone(String value) {
