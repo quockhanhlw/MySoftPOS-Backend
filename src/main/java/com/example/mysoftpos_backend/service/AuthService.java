@@ -17,6 +17,8 @@ import org.springframework.stereotype.Service;
 
 import java.net.SocketTimeoutException;
 import java.time.LocalDateTime;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Map;
 import java.util.Locale;
 import java.util.concurrent.ThreadLocalRandom;
@@ -32,6 +34,9 @@ public class AuthService {
     private static final int MIN_PASSWORD_LENGTH = 8;
     private static final int FORGOT_EMAIL_MAX_SEND_ATTEMPTS = 2;
     private static final long FORGOT_EMAIL_RETRY_DELAY_MS = 1200L;
+    private static final int DEFAULT_ACCOUNT_COUNT = 1;
+    private static final int MAX_ACCOUNT_COUNT = 500;
+    private static final int MAX_BRANCH_COUNT = 50;
 
     private final UserRepository userRepo;
     private final MerchantRepository merchantRepo;
@@ -63,6 +68,10 @@ public class AuthService {
         String storeName = normalizeText(req.getStoreName());
         String businessType = normalizeBusinessType(req.getBusinessType());
         String storeAddress = normalizeText(req.getStoreAddress());
+        String branchAddresses = normalizeText(req.getBranchAddresses());
+        Integer branchCount = normalizeBranchCount(req.getBranchCount());
+        int accountCount = normalizeAccountCount(req.getAccountCount());
+        Long assignedAdminId = resolveAssignedAdminId();
 
         if (userRepo.existsByPhone(phone)) {
             throw new RuntimeException("Phone number already registered");
@@ -83,18 +92,29 @@ public class AuthService {
                 .dob(dob)
                 .gender(gender)
                 .phoneVerified(true)
+                .adminId(assignedAdminId)
                 .build();
         user = userRepo.save(user);
 
         Merchant merchant = Merchant.builder()
                 .merchantCode(generateMerchantCode(phone, user.getId()))
                 .merchantName(storeName != null ? storeName : fullName)
-                .adminId(null)
+                .adminId(assignedAdminId)
                 .ownerUserId(user.getId())
                 .businessType(businessType)
                 .storeAddress(storeAddress)
+                .branchCount(branchCount)
+                .branchAddresses(branchAddresses)
+                .accountCount(accountCount)
                 .build();
-        merchantRepo.save(merchant);
+        merchant = merchantRepo.save(merchant);
+
+        user.setMerchantId(merchant.getId());
+        userRepo.save(user);
+
+        if (accountCount > 1) {
+            createAdditionalMerchantAccounts(req.getPassword(), user, merchant, assignedAdminId, accountCount - 1);
+        }
 
         return buildLoginResponse(user);
     }
@@ -228,10 +248,13 @@ public class AuthService {
     private LoginResponse buildLoginResponse(User user) {
         String accessToken = jwtProvider.generateAccessToken(user.getPhone(), user.getRole());
         String refreshToken = jwtProvider.generateRefreshToken(user.getPhone());
-        Merchant merchant = merchantRepo.findByOwnerUserId(user.getId()).orElse(null);
+        Merchant merchant = user.getMerchantId() != null
+                ? merchantRepo.findById(user.getMerchantId()).orElse(null)
+                : merchantRepo.findByOwnerUserId(user.getId()).orElse(null);
 
         UserDto dto = UserDto.builder()
                 .id(user.getId())
+                .merchantId(user.getMerchantId())
                 .role(user.getRole())
                 .fullName(user.getFullName())
                 .phone(user.getPhone())
@@ -253,6 +276,117 @@ public class AuthService {
                 .refreshToken(refreshToken)
                 .user(dto)
                 .build();
+    }
+
+    private Long resolveAssignedAdminId() {
+        User admin = userRepo.findFirstByRoleOrderByIdAsc(ADMIN_ROLE).orElse(null);
+        return admin != null ? admin.getId() : null;
+    }
+
+    private Integer normalizeBranchCount(Integer value) {
+        if (value == null) {
+            return null;
+        }
+        if (value <= 0) {
+            return 0;
+        }
+        return Math.min(value, MAX_BRANCH_COUNT);
+    }
+
+    private int normalizeAccountCount(Integer value) {
+        if (value == null || value < 1) {
+            return DEFAULT_ACCOUNT_COUNT;
+        }
+        return Math.min(value, MAX_ACCOUNT_COUNT);
+    }
+
+    private void createAdditionalMerchantAccounts(String rawPassword,
+                                                  User primaryUser,
+                                                  Merchant merchant,
+                                                  Long assignedAdminId,
+                                                  int additionalCount) {
+        List<User> createdAccounts = new ArrayList<>();
+        for (int i = 0; i < additionalCount; i++) {
+            int accountIndex = i + 2;
+            String accountPhone = buildUniqueSubAccountPhone(primaryUser.getPhone(), accountIndex);
+            String accountEmail = buildUniqueSubAccountEmail(primaryUser.getEmail(), accountIndex);
+            String accountName = buildSubAccountName(primaryUser.getFullName(), accountIndex);
+
+            User account = User.builder()
+                    .phone(accountPhone)
+                    .passwordHash(passwordEncoder.encode(rawPassword))
+                    .role(USER_ROLE)
+                    .fullName(accountName)
+                    .email(accountEmail)
+                    .dob(primaryUser.getDob())
+                    .gender(primaryUser.getGender())
+                    .phoneVerified(true)
+                    .adminId(assignedAdminId)
+                    .merchantId(merchant.getId())
+                    .active(true)
+                    .build();
+            createdAccounts.add(account);
+        }
+        userRepo.saveAll(createdAccounts);
+    }
+
+    private String buildSubAccountName(String fullName, int accountIndex) {
+        String baseName = fullName == null || fullName.isBlank() ? "Merchant account" : fullName.trim();
+        return baseName + " #" + accountIndex;
+    }
+
+    private String buildUniqueSubAccountPhone(String basePhone, int accountIndex) {
+        String digits = (basePhone == null ? "" : basePhone).replaceAll("\\D", "");
+        if (digits.isEmpty()) {
+            digits = String.valueOf(System.currentTimeMillis() % 1_000_000_000L);
+        }
+        if (digits.length() > 16) {
+            digits = digits.substring(digits.length() - 16);
+        }
+
+        for (int attempt = 0; attempt < 1000; attempt++) {
+            String suffix = String.format(Locale.ROOT, "%02d%02d", accountIndex % 100, attempt % 100);
+            String candidate = digits + suffix;
+            if (candidate.length() > 20) {
+                candidate = candidate.substring(candidate.length() - 20);
+            }
+            if (!userRepo.existsByPhone(candidate)) {
+                return candidate;
+            }
+        }
+
+        String fallback = String.valueOf(System.currentTimeMillis());
+        return fallback.length() > 20 ? fallback.substring(fallback.length() - 20) : fallback;
+    }
+
+    private String buildUniqueSubAccountEmail(String baseEmail, int accountIndex) {
+        if (baseEmail == null || baseEmail.isBlank()) {
+            return null;
+        }
+
+        String normalized = baseEmail.trim().toLowerCase(Locale.ROOT);
+        int atIndex = normalized.indexOf('@');
+        if (atIndex <= 0 || atIndex == normalized.length() - 1) {
+            return null;
+        }
+
+        String local = normalized.substring(0, atIndex);
+        String domain = normalized.substring(atIndex + 1);
+        for (int attempt = 0; attempt < 1000; attempt++) {
+            String candidate = local + "+a" + accountIndex + (attempt == 0 ? "" : attempt) + "@" + domain;
+            if (candidate.length() > 100) {
+                int overflow = candidate.length() - 100;
+                if (local.length() <= overflow) {
+                    continue;
+                }
+                String trimmedLocal = local.substring(0, local.length() - overflow);
+                candidate = trimmedLocal + "+a" + accountIndex + (attempt == 0 ? "" : attempt) + "@" + domain;
+            }
+            if (!userRepo.existsByEmail(candidate)) {
+                return candidate;
+            }
+        }
+        return null;
     }
 
     private String normalizeIdentifier(String value) {

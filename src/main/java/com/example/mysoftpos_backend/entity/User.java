@@ -47,6 +47,10 @@ public class User {
     @Column
     private Long adminId;
 
+    /** Merchant profile this user account belongs to */
+    @Column(name = "merchant_id")
+    private Long merchantId;
+
     /** Terminal ID (TID / DE 41) — each user maps to one TID */
     @Column(length = 8)
     private String terminalId;

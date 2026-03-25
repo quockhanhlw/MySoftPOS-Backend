@@ -11,5 +11,8 @@ public class MerchantDto {
     private Long ownerUserId;
     private String businessType;
     private String storeAddress;
+    private Integer branchCount;
+    private String branchAddresses;
+    private Integer accountCount;
 }
 

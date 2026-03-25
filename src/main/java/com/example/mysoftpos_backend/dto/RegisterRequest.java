@@ -16,4 +16,7 @@ public class RegisterRequest {
     private String storeName;
     private String businessType;
     private String storeAddress;
+    private Integer branchCount;
+    private String branchAddresses;
+    private Integer accountCount;
 }

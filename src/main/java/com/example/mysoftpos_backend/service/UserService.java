@@ -30,6 +30,15 @@ public class UserService {
         String phone = normalizePhone(req.getPhone());
         String email = normalizeEmail(req.getEmail());
         String fullName = normalizeText(req.getFullName());
+        Merchant targetMerchant = null;
+
+        if (req.getMerchantId() != null) {
+            targetMerchant = merchantRepo.findById(req.getMerchantId())
+                    .orElseThrow(() -> new RuntimeException("Merchant not found"));
+            if (!adminId.equals(targetMerchant.getAdminId())) {
+                throw new RuntimeException("Access denied");
+            }
+        }
 
         if (userRepo.existsByPhone(phone)) {
             throw new RuntimeException("Phone number already registered");
@@ -54,20 +63,27 @@ public class UserService {
                 .serverIp(normalizeText(req.getServerIp()))
                 .serverPort(req.getServerPort())
                 .adminId(adminId)
+                .merchantId(targetMerchant != null ? targetMerchant.getId() : null)
                 .build();
         user = userRepo.save(user);
 
-        Merchant merchant = Merchant.builder()
-                .merchantCode(generateMerchantCode(user.getId(), phone))
-                .merchantName(normalizeText(req.getStoreName()) != null
-                        ? normalizeText(req.getStoreName())
-                        : fullName)
-                .adminId(adminId)
-                .ownerUserId(user.getId())
-                .businessType(normalizeBusinessType(req.getBusinessType()))
-                .storeAddress(normalizeText(req.getStoreAddress()))
-                .build();
-        merchantRepo.save(merchant);
+        if (targetMerchant == null) {
+            Merchant merchant = Merchant.builder()
+                    .merchantCode(generateMerchantCode(user.getId(), phone))
+                    .merchantName(normalizeText(req.getStoreName()) != null
+                            ? normalizeText(req.getStoreName())
+                            : fullName)
+                    .adminId(adminId)
+                    .ownerUserId(user.getId())
+                    .businessType(normalizeBusinessType(req.getBusinessType()))
+                    .storeAddress(normalizeText(req.getStoreAddress()))
+                    .accountCount(1)
+                    .build();
+            merchant = merchantRepo.save(merchant);
+            user.setMerchantId(merchant.getId());
+            userRepo.save(user);
+        }
+
         return toDto(user);
     }
 
@@ -101,6 +117,14 @@ public class UserService {
             user.setServerIp(normalizeText(req.getServerIp()));
         if (req.getServerPort() != null)
             user.setServerPort(req.getServerPort());
+        if (req.getMerchantId() != null) {
+            Merchant targetMerchant = merchantRepo.findById(req.getMerchantId())
+                    .orElseThrow(() -> new RuntimeException("Merchant not found"));
+            if (!adminId.equals(targetMerchant.getAdminId())) {
+                throw new RuntimeException("Access denied");
+            }
+            user.setMerchantId(targetMerchant.getId());
+        }
         if (req.getDob() != null)
             user.setDob(normalizeText(req.getDob()));
         if (req.getGender() != null)
@@ -110,7 +134,9 @@ public class UserService {
         }
         userRepo.save(user);
 
-        Merchant merchant = merchantRepo.findByOwnerUserId(user.getId()).orElse(null);
+        Merchant merchant = user.getMerchantId() != null
+                ? merchantRepo.findById(user.getMerchantId()).orElse(null)
+                : merchantRepo.findByOwnerUserId(user.getId()).orElse(null);
         if (merchant != null) {
             if (req.getStoreName() != null)
                 merchant.setMerchantName(normalizeText(req.getStoreName()));
@@ -146,12 +172,18 @@ public class UserService {
     }
 
     private UserDto toDto(User u) {
-        Merchant merchant = merchantRepo.findByOwnerUserId(u.getId()).orElse(null);
+        Merchant merchant = u.getMerchantId() != null
+                ? merchantRepo.findById(u.getMerchantId()).orElse(null)
+                : merchantRepo.findByOwnerUserId(u.getId()).orElse(null);
+        Long merchantId = u.getMerchantId() != null
+                ? u.getMerchantId()
+                : (merchant != null ? merchant.getId() : null);
         boolean isOnline = u.getLastActiveAt() != null &&
                 u.getLastActiveAt().isAfter(java.time.LocalDateTime.now().minusMinutes(5));
 
         return UserDto.builder()
                 .id(u.getId())
+                .merchantId(merchantId)
                 .role(u.getRole())
                 .fullName(u.getFullName())
                 .phone(u.getPhone())

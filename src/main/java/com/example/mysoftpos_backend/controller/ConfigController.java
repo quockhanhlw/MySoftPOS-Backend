@@ -2,11 +2,13 @@ package com.example.mysoftpos_backend.controller;
 
 import com.example.mysoftpos_backend.dto.MerchantDto;
 import com.example.mysoftpos_backend.dto.TerminalDto;
+import com.example.mysoftpos_backend.dto.UserDto;
 import com.example.mysoftpos_backend.entity.Merchant;
 import com.example.mysoftpos_backend.entity.Terminal;
 import com.example.mysoftpos_backend.entity.User;
 import com.example.mysoftpos_backend.repository.MerchantRepository;
 import com.example.mysoftpos_backend.repository.TerminalRepository;
+import com.example.mysoftpos_backend.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -25,6 +27,7 @@ public class ConfigController {
 
     private final MerchantRepository merchantRepo;
     private final TerminalRepository terminalRepo;
+    private final UserRepository userRepo;
 
     // ==================== Merchants ====================
 
@@ -62,6 +65,19 @@ public class ConfigController {
         if (body.containsKey("storeAddress")) m.setStoreAddress(body.get("storeAddress"));
         merchantRepo.save(m);
         return ResponseEntity.ok(toMerchantDto(m));
+    }
+
+    @GetMapping("/merchants/{id}/accounts")
+    public ResponseEntity<?> getMerchantAccounts(@AuthenticationPrincipal User admin,
+                                                 @PathVariable Long id) {
+        Merchant merchant = merchantRepo.findById(id).orElse(null);
+        if (merchant == null || !Objects.equals(merchant.getAdminId(), admin.getId())) {
+            return ResponseEntity.badRequest().body(Map.of("error", "Not found or access denied"));
+        }
+
+        return ResponseEntity.ok(userRepo.findByAdminIdAndMerchantIdOrderByIdAsc(admin.getId(), id).stream()
+                .map(this::toUserDto)
+                .collect(Collectors.toList()));
     }
 
     // ==================== Terminals ====================
@@ -117,6 +133,37 @@ public class ConfigController {
                 .ownerUserId(m.getOwnerUserId())
                 .businessType(m.getBusinessType())
                 .storeAddress(m.getStoreAddress())
+                .branchCount(m.getBranchCount())
+                .branchAddresses(m.getBranchAddresses())
+                .accountCount(m.getAccountCount())
+                .build();
+    }
+
+    private UserDto toUserDto(User user) {
+        Merchant merchant = user.getMerchantId() != null
+                ? merchantRepo.findById(user.getMerchantId()).orElse(null)
+                : merchantRepo.findByOwnerUserId(user.getId()).orElse(null);
+        Long merchantId = user.getMerchantId() != null
+                ? user.getMerchantId()
+                : (merchant != null ? merchant.getId() : null);
+
+        return UserDto.builder()
+                .id(user.getId())
+                .merchantId(merchantId)
+                .role(user.getRole())
+                .fullName(user.getFullName())
+                .phone(user.getPhone())
+                .email(user.getEmail())
+                .dob(user.getDob())
+                .gender(user.getGender())
+                .storeName(merchant != null ? merchant.getMerchantName() : null)
+                .businessType(merchant != null ? merchant.getBusinessType() : null)
+                .storeAddress(merchant != null ? merchant.getStoreAddress() : null)
+                .phoneVerified(user.isPhoneVerified())
+                .terminalId(user.getTerminalId())
+                .serverIp(user.getServerIp())
+                .serverPort(user.getServerPort())
+                .active(user.isActive())
                 .build();
     }
 

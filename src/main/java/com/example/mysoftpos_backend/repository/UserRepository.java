@@ -25,6 +25,10 @@ public interface UserRepository extends JpaRepository<User, Long> {
 
     List<User> findByAdminIdAndRole(Long adminId, String role);
 
+    List<User> findByAdminIdAndMerchantIdOrderByIdAsc(Long adminId, Long merchantId);
+
+    Optional<User> findFirstByRoleOrderByIdAsc(String role);
+
     @Transactional
     @Modifying
     @Query("UPDATE User u SET u.lastActiveAt = :lastActiveAt WHERE u.id = :id")

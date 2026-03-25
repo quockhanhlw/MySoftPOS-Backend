@@ -31,4 +31,13 @@ public class Merchant {
 
     @Column(length = 255)
     private String storeAddress;
+
+    @Column
+    private Integer branchCount;
+
+    @Column(length = 1000)
+    private String branchAddresses;
+
+    @Column
+    private Integer accountCount;
 }
