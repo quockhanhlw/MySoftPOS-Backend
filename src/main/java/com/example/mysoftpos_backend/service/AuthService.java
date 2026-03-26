@@ -79,9 +79,9 @@ public class AuthService {
         Integer branchCount = normalizeBranchCount(req.getBranchCount());
         int accountCount = normalizeAccountCount(req.getAccountCount());
         Long assignedAdminId = resolveAssignedAdminId();
-        List<String> accountPhones = buildMerchantAccountPhones(basePhone, accountCount);
+        List<String> accountUsernames = buildMerchantAccountUsernames(basePhone, accountCount);
 
-        validateAccountPhonesAvailable(accountPhones);
+        validateAccountUsernamesAvailable(accountUsernames);
         if (email != null && userRepo.existsByEmail(email)) {
             throw new RuntimeException("Email already registered");
         }
@@ -90,7 +90,8 @@ public class AuthService {
         }
 
         User user = User.builder()
-                .phone(accountPhones.get(0))
+                .phone(accountUsernames.get(0))
+                .username(accountUsernames.get(0))
                 .passwordHash(passwordEncoder.encode(req.getPassword()))
                 .role(USER_ROLE)
                 .fullName(fullName)
@@ -123,7 +124,8 @@ public class AuthService {
         userRepo.save(user);
 
         if (accountCount > 1) {
-            createAdditionalMerchantAccounts(req.getPassword(), user, merchant, mainBranch, assignedAdminId, accountPhones);
+            createAdditionalMerchantAccounts(req.getPassword(), user, merchant, mainBranch, assignedAdminId,
+                    accountUsernames);
         }
 
         return buildLoginResponse(user);
@@ -132,7 +134,7 @@ public class AuthService {
     public LoginResponse login(LoginRequest req) {
         String identifier = normalizeIdentifier(req.getUsername());
 
-        User user = userRepo.findByPhone(identifier)
+        User user = userRepo.findByUsername(identifier)
                 .or(() -> userRepo.findByEmail(identifier))
                 .orElseThrow(() -> new RuntimeException("Invalid credentials"));
 
@@ -167,8 +169,9 @@ public class AuthService {
         if (!jwtProvider.validateToken(refreshToken)) {
             throw new RuntimeException("Invalid refresh token");
         }
-        String phone = jwtProvider.getSubjectFromToken(refreshToken);
-        User user = userRepo.findByPhone(phone)
+        String username = jwtProvider.getSubjectFromToken(refreshToken);
+        User user = userRepo.findByUsername(username)
+                .or(() -> userRepo.findByPhone(username))
                 .orElseThrow(() -> new RuntimeException("User not found"));
         return buildLoginResponse(user);
     }
@@ -256,8 +259,8 @@ public class AuthService {
     }
 
     private LoginResponse buildLoginResponse(User user) {
-        String accessToken = jwtProvider.generateAccessToken(user.getPhone(), user.getRole());
-        String refreshToken = jwtProvider.generateRefreshToken(user.getPhone());
+        String accessToken = jwtProvider.generateAccessToken(user.getUsername(), user.getRole());
+        String refreshToken = jwtProvider.generateRefreshToken(user.getUsername());
         Merchant merchant = user.getMerchantId() != null
                 ? merchantRepo.findById(user.getMerchantId()).orElse(null)
                 : merchantRepo.findByOwnerUserId(user.getId()).orElse(null);
@@ -272,6 +275,7 @@ public class AuthService {
                 .merchantCode(merchant != null ? merchant.getMerchantCode() : null)
                 .role(user.getRole())
                 .fullName(user.getFullName())
+                .username(user.getUsername())
                 .phone(user.getPhone())
                 .email(user.getEmail())
                 .dob(user.getDob())
@@ -321,15 +325,16 @@ public class AuthService {
                                                   Merchant merchant,
                                                   Branch mainBranch,
                                                   Long assignedAdminId,
-                                                  List<String> accountPhones) {
+                                                  List<String> accountUsernames) {
         List<User> createdAccounts = new ArrayList<>();
-        for (int accountIndex = 2; accountIndex <= accountPhones.size(); accountIndex++) {
-            String accountPhone = accountPhones.get(accountIndex - 1);
+        for (int accountIndex = 2; accountIndex <= accountUsernames.size(); accountIndex++) {
+            String accountUsername = accountUsernames.get(accountIndex - 1);
             String accountEmail = buildUniqueSubAccountEmail(primaryUser.getEmail(), accountIndex);
             String accountName = buildSubAccountName(primaryUser.getFullName(), accountIndex);
 
             User account = User.builder()
-                    .phone(accountPhone)
+                    .phone(accountUsername)
+                    .username(accountUsername)
                     .passwordHash(passwordEncoder.encode(rawPassword))
                     .role(USER_ROLE)
                     .fullName(accountName)
@@ -360,30 +365,30 @@ public class AuthService {
                         .build()));
     }
 
-    private List<String> buildMerchantAccountPhones(String basePhone, int accountCount) {
+    private List<String> buildMerchantAccountUsernames(String basePhone, int accountCount) {
         if (basePhone == null || basePhone.isBlank()) {
             throw new RuntimeException("Phone number is required");
         }
 
-        List<String> phones = new ArrayList<>();
+        List<String> usernames = new ArrayList<>();
         for (int index = 1; index <= accountCount; index++) {
             String candidate = basePhone + index;
-            if (candidate.length() > 20) {
-                throw new RuntimeException("Generated account phone exceeds max length");
+            if (candidate.length() > 40) {
+                throw new RuntimeException("Generated account username exceeds max length");
             }
-            phones.add(candidate);
+            usernames.add(candidate);
         }
-        return phones;
+        return usernames;
     }
 
-    private void validateAccountPhonesAvailable(List<String> accountPhones) {
-        java.util.Set<String> unique = new java.util.LinkedHashSet<>(accountPhones);
-        if (unique.size() != accountPhones.size()) {
-            throw new RuntimeException("Generated account phones are duplicated");
+    private void validateAccountUsernamesAvailable(List<String> accountUsernames) {
+        java.util.Set<String> unique = new java.util.LinkedHashSet<>(accountUsernames);
+        if (unique.size() != accountUsernames.size()) {
+            throw new RuntimeException("Generated account usernames are duplicated");
         }
-        for (String phone : unique) {
-            if (userRepo.existsByPhone(phone)) {
-                throw new RuntimeException("Phone number already registered: " + phone);
+        for (String username : unique) {
+            if (userRepo.existsByUsername(username)) {
+                throw new RuntimeException("Username already registered: " + username);
             }
         }
     }

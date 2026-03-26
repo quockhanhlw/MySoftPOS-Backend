@@ -13,9 +13,13 @@ import java.time.LocalDateTime;
 public interface UserRepository extends JpaRepository<User, Long> {
     Optional<User> findByPhone(String phone);
 
+    Optional<User> findByUsername(String username);
+
     Optional<User> findByEmail(String email);
 
     boolean existsByPhone(String phone);
+
+    boolean existsByUsername(String username);
 
     boolean existsByEmail(String email);
 
@@ -30,6 +34,8 @@ public interface UserRepository extends JpaRepository<User, Long> {
     List<User> findByAdminIdAndMerchantIdAndBranchIdOrderByIdAsc(Long adminId, Long merchantId, Long branchId);
 
     List<User> findByMerchantIdAndBranchId(Long merchantId, Long branchId);
+
+    long countByAdminIdAndMerchantId(Long adminId, Long merchantId);
 
     Optional<User> findFirstByRoleOrderByIdAsc(String role);
 

@@ -86,6 +86,26 @@ public class ConfigController {
         return ResponseEntity.ok(toMerchantDto(m));
     }
 
+    @DeleteMapping("/merchants/{id}")
+    public ResponseEntity<?> deleteMerchant(@AuthenticationPrincipal User admin,
+                                            @PathVariable Long id) {
+        Merchant merchant = merchantRepo.findById(id).orElse(null);
+        if (merchant == null || !Objects.equals(merchant.getAdminId(), admin.getId())) {
+            return ResponseEntity.badRequest().body(Map.of("error", "Not found or access denied"));
+        }
+
+        long accountCount = userRepo.countByAdminIdAndMerchantId(admin.getId(), id);
+        long branchCount = branchRepo.countByMerchantId(id);
+        long terminalCount = terminalRepo.countByMerchantId(id);
+        if (accountCount > 0 || branchCount > 0 || terminalCount > 0) {
+            return ResponseEntity.status(HttpStatus.CONFLICT)
+                    .body(Map.of("error", "Merchant still has linked accounts/branches/terminals"));
+        }
+
+        merchantRepo.delete(merchant);
+        return ResponseEntity.ok(Map.of("message", "Deleted"));
+    }
+
     @GetMapping("/merchants/{id}/accounts")
     public ResponseEntity<?> getMerchantAccounts(@AuthenticationPrincipal User admin,
                                                  @PathVariable Long id,
@@ -216,6 +236,7 @@ public class ConfigController {
                 .merchantCode(merchant != null ? merchant.getMerchantCode() : null)
                 .role(user.getRole())
                 .fullName(user.getFullName())
+                .username(user.getUsername())
                 .phone(user.getPhone())
                 .email(user.getEmail())
                 .dob(user.getDob())

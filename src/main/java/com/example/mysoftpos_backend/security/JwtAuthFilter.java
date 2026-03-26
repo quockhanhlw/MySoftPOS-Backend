@@ -33,8 +33,10 @@ public class JwtAuthFilter extends OncePerRequestFilter {
 
         String token = extractToken(request);
         if (token != null && jwtProvider.validateToken(token)) {
-            String phone = jwtProvider.getSubjectFromToken(token);
-            User user = userRepository.findByPhone(phone).orElse(null);
+            String subject = jwtProvider.getSubjectFromToken(token);
+            User user = userRepository.findByUsername(subject)
+                    .or(() -> userRepository.findByPhone(subject))
+                    .orElse(null);
 
             if (user != null && user.isActive()) {
                 userRepository.updateLastActiveAt(user.getId(), java.time.LocalDateTime.now());

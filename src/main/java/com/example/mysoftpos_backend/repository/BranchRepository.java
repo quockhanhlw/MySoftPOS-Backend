@@ -11,6 +11,8 @@ public interface BranchRepository extends JpaRepository<Branch, Long> {
 
     Optional<Branch> findByMerchantIdAndBranchCode(Long merchantId, String branchCode);
 
+    long countByMerchantId(Long merchantId);
+
     boolean existsByMerchantIdAndBranchCode(Long merchantId, String branchCode);
 }
 

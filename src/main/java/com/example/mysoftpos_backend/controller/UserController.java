@@ -17,6 +17,7 @@ import java.util.Map;
 @RestController
 @RequestMapping("/api/users")
 @RequiredArgsConstructor
+@Deprecated
 public class UserController {
 
     private final UserService userService;

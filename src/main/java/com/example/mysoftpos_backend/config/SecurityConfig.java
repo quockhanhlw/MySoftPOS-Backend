@@ -55,8 +55,17 @@ public class SecurityConfig {
                 .anyRequest().authenticated()
             )
             .addFilterBefore(jwtAuthFilter, UsernamePasswordAuthenticationFilter.class)
-            // H2 console needs frames
-            .headers(h -> h.frameOptions(fo -> fo.sameOrigin()));
+            // Production security headers
+            .headers(h -> h
+                .frameOptions(fo -> fo.deny())
+                .contentTypeOptions(cto -> {})              // X-Content-Type-Options: nosniff
+                .httpStrictTransportSecurity(hsts -> hsts    // HSTS: enforce HTTPS
+                    .includeSubDomains(true)
+                    .maxAgeInSeconds(31536000))
+                .xssProtection(xss -> xss.headerValue(      // X-XSS-Protection: 1; mode=block
+                    org.springframework.security.web.header.writers.XXssProtectionHeaderWriter
+                        .HeaderValue.ENABLED_MODE_BLOCK))
+            );
 
         return http.build();
     }

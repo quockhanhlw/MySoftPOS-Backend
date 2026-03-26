@@ -40,6 +40,7 @@ public class UserService {
 
     public UserDto createUser(Long adminId, CreateUserRequest req) {
         String phone = normalizePhone(req.getPhone());
+        String username = normalizeUsername(req.getPhone());
         String email = normalizeEmail(req.getEmail());
         String fullName = normalizeText(req.getFullName());
         Merchant targetMerchant = null;
@@ -54,6 +55,9 @@ public class UserService {
             branchId = resolveBranchIdForRequest(targetMerchant, req.getBranchId());
         }
 
+        if (userRepo.existsByUsername(username)) {
+            throw new RuntimeException("Username already registered");
+        }
         if (userRepo.existsByPhone(phone)) {
             throw new RuntimeException("Phone number already registered");
         }
@@ -67,6 +71,7 @@ public class UserService {
 
         User user = User.builder()
                 .phone(phone)
+                .username(username)
                 .passwordHash(passwordEncoder.encode(req.getPassword()))
                 .role("USER")
                 .fullName(fullName)
@@ -122,10 +127,15 @@ public class UserService {
             user.setFullName(normalizeText(req.getFullName()));
         if (req.getPhone() != null) {
             String phone = normalizePhone(req.getPhone());
+            String username = normalizeUsername(req.getPhone());
             if (!phone.equals(user.getPhone()) && userRepo.existsByPhone(phone)) {
                 throw new RuntimeException("Phone number already registered");
             }
+            if (!username.equals(user.getUsername()) && userRepo.existsByUsername(username)) {
+                throw new RuntimeException("Username already registered");
+            }
             user.setPhone(phone);
+            user.setUsername(username);
         }
         if (req.getEmail() != null) {
             String email = normalizeEmail(req.getEmail());
@@ -241,6 +251,7 @@ public class UserService {
                 .merchantCode(merchant != null ? merchant.getMerchantCode() : null)
                 .role(u.getRole())
                 .fullName(u.getFullName())
+                .username(u.getUsername())
                 .phone(u.getPhone())
                 .email(u.getEmail())
                 .dob(u.getDob())
@@ -340,6 +351,10 @@ public class UserService {
     }
 
     private String normalizePhone(String value) {
+        return value == null ? "" : value.trim();
+    }
+
+    private String normalizeUsername(String value) {
         return value == null ? "" : value.trim();
     }
 

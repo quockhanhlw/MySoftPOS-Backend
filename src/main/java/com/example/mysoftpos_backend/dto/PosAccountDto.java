@@ -20,6 +20,7 @@ public class PosAccountDto {
     private String merchantCode;
     private String role;
     private String fullName;
+    private String username;
     private String phone;
     private String email;
     private String dob;
@@ -48,6 +49,7 @@ public class PosAccountDto {
                 .merchantCode(userDto.getMerchantCode())
                 .role(userDto.getRole())
                 .fullName(userDto.getFullName())
+                .username(userDto.getUsername())
                 .phone(userDto.getPhone())
                 .email(userDto.getEmail())
                 .dob(userDto.getDob())

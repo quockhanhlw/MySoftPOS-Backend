@@ -37,6 +37,12 @@ public class TransactionService {
                     .maskedPan(item.getMaskedPan())
                     .cardScheme(item.getCardScheme())
                     .terminalCode(item.getTerminalCode())
+                    .requestHex(item.getRequestHex())
+                    .responseHex(item.getResponseHex())
+                    .processingCode(item.getProcessingCode())
+                    .currencyCode(item.getCurrencyCode())
+                    .rrn(item.getRrn())
+                    .ownerUsername(item.getOwnerUsername())
                     .user(user)
                     .deviceId(item.getDeviceId())
                     .txnTimestamp(LocalDateTime.ofInstant(
@@ -79,7 +85,13 @@ public class TransactionService {
                 .txnTimestamp(t.getTxnTimestamp() != null ? t.getTxnTimestamp().format(ISO_FMT) : null)
                 .syncedAt(t.getSyncedAt() != null ? t.getSyncedAt().format(ISO_FMT) : null)
                 .userId(t.getUser() != null ? t.getUser().getId() : null)
-                .username(t.getUser() != null ? t.getUser().getPhone() : null)
+                .username(t.getUser() != null ? t.getUser().getUsername() : null)
+                .requestHex(t.getRequestHex())
+                .responseHex(t.getResponseHex())
+                .processingCode(t.getProcessingCode())
+                .currencyCode(t.getCurrencyCode())
+                .rrn(t.getRrn())
+                .ownerUsername(t.getOwnerUsername())
                 .build();
     }
 }

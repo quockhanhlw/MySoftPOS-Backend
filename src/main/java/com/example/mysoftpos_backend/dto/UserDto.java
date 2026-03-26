@@ -16,6 +16,7 @@ public class UserDto {
     private String merchantCode;
     private String role;
     private String fullName;
+    private String username;
     private String phone;
     private String email;
     private String dob;

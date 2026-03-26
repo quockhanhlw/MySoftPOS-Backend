@@ -16,5 +16,11 @@ public class TransactionSummaryDto {
     private String syncedAt;
     private Long userId;
     private String username;
+    private String requestHex;
+    private String responseHex;
+    private String processingCode;
+    private String currencyCode;
+    private String rrn;
+    private String ownerUsername;
 }
 

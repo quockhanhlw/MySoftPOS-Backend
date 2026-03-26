@@ -36,6 +36,26 @@ public class TransactionSummary {
     @Column(length = 8)
     private String terminalCode;
 
+    @Lob
+    @Column(name = "request_hex")
+    private String requestHex;
+
+    @Lob
+    @Column(name = "response_hex")
+    private String responseHex;
+
+    @Column(name = "processing_code", length = 6)
+    private String processingCode;
+
+    @Column(name = "currency_code", length = 3)
+    private String currencyCode;
+
+    @Column(length = 12)
+    private String rrn;
+
+    @Column(name = "owner_username", length = 64)
+    private String ownerUsername;
+
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "user_id")
     private User user;

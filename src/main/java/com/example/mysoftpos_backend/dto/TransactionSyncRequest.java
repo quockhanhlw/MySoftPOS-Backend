@@ -17,6 +17,12 @@ public class TransactionSyncRequest {
         private String cardScheme;
         private String terminalCode;
         private String deviceId;
+        private String requestHex;
+        private String responseHex;
+        private String processingCode;
+        private String currencyCode;
+        private String rrn;
+        private String ownerUsername;
         private long txnTimestamp; // epoch millis
     }
 }
