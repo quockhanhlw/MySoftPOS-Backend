@@ -7,6 +7,8 @@ public class TerminalDto {
     private Long id;
     private String terminalCode;
     private MerchantDto merchant;
+    private Long branchId;
+    private Long posAccountId;
     private String serverIp;
     private Integer serverPort;
 }

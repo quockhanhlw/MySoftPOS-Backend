@@ -2,8 +2,10 @@ package com.example.mysoftpos_backend.service;
 
 import com.example.mysoftpos_backend.dto.CreateUserRequest;
 import com.example.mysoftpos_backend.dto.UserDto;
+import com.example.mysoftpos_backend.entity.Branch;
 import com.example.mysoftpos_backend.entity.Merchant;
 import com.example.mysoftpos_backend.entity.User;
+import com.example.mysoftpos_backend.repository.BranchRepository;
 import com.example.mysoftpos_backend.repository.MerchantRepository;
 import com.example.mysoftpos_backend.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
@@ -19,9 +21,11 @@ public class UserService {
 
     private static final java.util.regex.Pattern TID_PATTERN = java.util.regex.Pattern.compile("^[A-Z0-9]{8}$");
     private static final java.util.regex.Pattern BANK_NAME_PATTERN = java.util.regex.Pattern.compile("^[A-Z0-9]{2,22}$");
+    private static final String DEFAULT_BRANCH_CODE = "MAIN";
 
     private final UserRepository userRepo;
     private final MerchantRepository merchantRepo;
+    private final BranchRepository branchRepo;
     private final PasswordEncoder passwordEncoder;
 
     public List<UserDto> getUsersByAdmin(Long adminId) {
@@ -29,11 +33,17 @@ public class UserService {
                 .map(this::toDto).collect(Collectors.toList());
     }
 
+    // Domain alias: users table is currently the POS account table.
+    public List<UserDto> getPosAccountsByAdmin(Long adminId) {
+        return getUsersByAdmin(adminId);
+    }
+
     public UserDto createUser(Long adminId, CreateUserRequest req) {
         String phone = normalizePhone(req.getPhone());
         String email = normalizeEmail(req.getEmail());
         String fullName = normalizeText(req.getFullName());
         Merchant targetMerchant = null;
+        Long branchId = null;
 
         if (req.getMerchantId() != null) {
             targetMerchant = merchantRepo.findById(req.getMerchantId())
@@ -41,6 +51,7 @@ public class UserService {
             if (!adminId.equals(targetMerchant.getAdminId())) {
                 throw new RuntimeException("Access denied");
             }
+            branchId = resolveBranchIdForRequest(targetMerchant, req.getBranchId());
         }
 
         if (userRepo.existsByPhone(phone)) {
@@ -68,6 +79,7 @@ public class UserService {
                 .serverPort(req.getServerPort())
                 .adminId(adminId)
                 .merchantId(targetMerchant != null ? targetMerchant.getId() : null)
+                .branchId(branchId)
                 .build();
         user = userRepo.save(user);
 
@@ -85,11 +97,17 @@ public class UserService {
                     .accountCount(1)
                     .build();
             merchant = merchantRepo.save(merchant);
+            Branch mainBranch = ensureMainBranch(merchant);
             user.setMerchantId(merchant.getId());
+            user.setBranchId(mainBranch.getId());
             userRepo.save(user);
         }
 
         return toDto(user);
+    }
+
+    public UserDto createPosAccount(Long adminId, CreateUserRequest req) {
+        return createUser(adminId, req);
     }
 
     public UserDto updateUser(Long adminId, Long userId, CreateUserRequest req) {
@@ -130,6 +148,18 @@ public class UserService {
                 throw new RuntimeException("Access denied");
             }
             user.setMerchantId(targetMerchant.getId());
+            if (req.getBranchId() == null) {
+                user.setBranchId(resolveBranchIdForRequest(targetMerchant, null));
+            }
+        }
+        if (req.getBranchId() != null) {
+            Merchant scopeMerchant = user.getMerchantId() != null
+                    ? merchantRepo.findById(user.getMerchantId()).orElse(null)
+                    : null;
+            if (scopeMerchant == null || !adminId.equals(scopeMerchant.getAdminId())) {
+                throw new RuntimeException("Merchant not found or access denied");
+            }
+            user.setBranchId(resolveBranchIdForRequest(scopeMerchant, req.getBranchId()));
         }
         if (req.getDob() != null)
             user.setDob(normalizeText(req.getDob()));
@@ -157,6 +187,10 @@ public class UserService {
         return toDto(user);
     }
 
+    public UserDto updatePosAccount(Long adminId, Long accountId, CreateUserRequest req) {
+        return updateUser(adminId, accountId, req);
+    }
+
     public void deleteUser(Long adminId, Long userId) {
         User user = userRepo.findById(userId)
                 .orElseThrow(() -> new RuntimeException("User not found"));
@@ -165,6 +199,10 @@ public class UserService {
         }
         merchantRepo.deleteByOwnerUserId(user.getId());
         userRepo.delete(user);
+    }
+
+    public void deletePosAccount(Long adminId, Long accountId) {
+        deleteUser(adminId, accountId);
     }
 
     public void resetPassword(Long adminId, Long userId, String newPassword) {
@@ -179,10 +217,15 @@ public class UserService {
         userRepo.save(user);
     }
 
-    private UserDto toDto(User u) {
+    public void resetPosAccountPassword(Long adminId, Long accountId, String newPassword) {
+        resetPassword(adminId, accountId, newPassword);
+    }
+
+    public UserDto toDto(User u) {
         Merchant merchant = u.getMerchantId() != null
                 ? merchantRepo.findById(u.getMerchantId()).orElse(null)
                 : merchantRepo.findByOwnerUserId(u.getId()).orElse(null);
+        Branch branch = u.getBranchId() != null ? branchRepo.findById(u.getBranchId()).orElse(null) : null;
         Long merchantId = u.getMerchantId() != null
                 ? u.getMerchantId()
                 : (merchant != null ? merchant.getId() : null);
@@ -192,6 +235,9 @@ public class UserService {
         return UserDto.builder()
                 .id(u.getId())
                 .merchantId(merchantId)
+                .branchId(u.getBranchId())
+                .branchCode(branch != null ? branch.getBranchCode() : null)
+                .branchName(branch != null ? branch.getBranchName() : null)
                 .merchantCode(merchant != null ? merchant.getMerchantCode() : null)
                 .role(u.getRole())
                 .fullName(u.getFullName())
@@ -210,6 +256,31 @@ public class UserService {
                 .active(u.isActive())
                 .online(isOnline)
                 .build();
+    }
+
+    private Long resolveBranchIdForRequest(Merchant merchant, Long requestedBranchId) {
+        if (merchant == null) {
+            return null;
+        }
+        if (requestedBranchId != null) {
+            Branch branch = branchRepo.findById(requestedBranchId)
+                    .orElseThrow(() -> new RuntimeException("Branch not found"));
+            if (!merchant.getId().equals(branch.getMerchantId())) {
+                throw new RuntimeException("Branch does not belong to merchant");
+            }
+            return branch.getId();
+        }
+        return ensureMainBranch(merchant).getId();
+    }
+
+    private Branch ensureMainBranch(Merchant merchant) {
+        return branchRepo.findByMerchantIdAndBranchCode(merchant.getId(), DEFAULT_BRANCH_CODE)
+                .orElseGet(() -> branchRepo.save(Branch.builder()
+                        .merchantId(merchant.getId())
+                        .branchCode(DEFAULT_BRANCH_CODE)
+                        .branchName(normalizeText(merchant.getMerchantName()))
+                        .branchAddress(normalizeText(merchant.getStoreAddress()))
+                        .build()));
     }
 
     private String normalizeBusinessType(String value) {

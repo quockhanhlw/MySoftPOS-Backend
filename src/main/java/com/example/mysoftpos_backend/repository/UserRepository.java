@@ -27,6 +27,10 @@ public interface UserRepository extends JpaRepository<User, Long> {
 
     List<User> findByAdminIdAndMerchantIdOrderByIdAsc(Long adminId, Long merchantId);
 
+    List<User> findByAdminIdAndMerchantIdAndBranchIdOrderByIdAsc(Long adminId, Long merchantId, Long branchId);
+
+    List<User> findByMerchantIdAndBranchId(Long merchantId, Long branchId);
+
     Optional<User> findFirstByRoleOrderByIdAsc(String role);
 
     @Transactional

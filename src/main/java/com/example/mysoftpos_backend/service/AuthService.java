@@ -1,8 +1,10 @@
 package com.example.mysoftpos_backend.service;
 
 import com.example.mysoftpos_backend.dto.*;
+import com.example.mysoftpos_backend.entity.Branch;
 import com.example.mysoftpos_backend.entity.Merchant;
 import com.example.mysoftpos_backend.entity.User;
+import com.example.mysoftpos_backend.repository.BranchRepository;
 import com.example.mysoftpos_backend.repository.MerchantRepository;
 import com.example.mysoftpos_backend.repository.UserRepository;
 import com.example.mysoftpos_backend.security.JwtTokenProvider;
@@ -37,10 +39,12 @@ public class AuthService {
     private static final int DEFAULT_ACCOUNT_COUNT = 1;
     private static final int MAX_ACCOUNT_COUNT = 500;
     private static final int MAX_BRANCH_COUNT = 50;
+    private static final String DEFAULT_BRANCH_CODE = "MAIN";
     private static final java.util.regex.Pattern BANK_NAME_PATTERN = java.util.regex.Pattern.compile("^[A-Z0-9]{2,22}$");
 
     private final UserRepository userRepo;
     private final MerchantRepository merchantRepo;
+    private final BranchRepository branchRepo;
     private final PasswordEncoder passwordEncoder;
     private final JwtTokenProvider jwtProvider;
     private final JavaMailSender mailSender;
@@ -112,11 +116,14 @@ public class AuthService {
                 .build();
         merchant = merchantRepo.save(merchant);
 
+        Branch mainBranch = ensureMainBranch(merchant);
+
         user.setMerchantId(merchant.getId());
+        user.setBranchId(mainBranch.getId());
         userRepo.save(user);
 
         if (accountCount > 1) {
-            createAdditionalMerchantAccounts(req.getPassword(), user, merchant, assignedAdminId, accountPhones);
+            createAdditionalMerchantAccounts(req.getPassword(), user, merchant, mainBranch, assignedAdminId, accountPhones);
         }
 
         return buildLoginResponse(user);
@@ -254,10 +261,14 @@ public class AuthService {
         Merchant merchant = user.getMerchantId() != null
                 ? merchantRepo.findById(user.getMerchantId()).orElse(null)
                 : merchantRepo.findByOwnerUserId(user.getId()).orElse(null);
+        Branch branch = user.getBranchId() != null ? branchRepo.findById(user.getBranchId()).orElse(null) : null;
 
         UserDto dto = UserDto.builder()
                 .id(user.getId())
                 .merchantId(user.getMerchantId())
+                .branchId(user.getBranchId())
+                .branchCode(branch != null ? branch.getBranchCode() : null)
+                .branchName(branch != null ? branch.getBranchName() : null)
                 .merchantCode(merchant != null ? merchant.getMerchantCode() : null)
                 .role(user.getRole())
                 .fullName(user.getFullName())
@@ -308,6 +319,7 @@ public class AuthService {
     private void createAdditionalMerchantAccounts(String rawPassword,
                                                   User primaryUser,
                                                   Merchant merchant,
+                                                  Branch mainBranch,
                                                   Long assignedAdminId,
                                                   List<String> accountPhones) {
         List<User> createdAccounts = new ArrayList<>();
@@ -327,11 +339,25 @@ public class AuthService {
                     .phoneVerified(true)
                     .adminId(assignedAdminId)
                     .merchantId(merchant.getId())
+                    .branchId(mainBranch != null ? mainBranch.getId() : null)
                     .active(true)
                     .build();
             createdAccounts.add(account);
         }
         userRepo.saveAll(createdAccounts);
+    }
+
+    private Branch ensureMainBranch(Merchant merchant) {
+        if (merchant == null || merchant.getId() == null) {
+            return null;
+        }
+        return branchRepo.findByMerchantIdAndBranchCode(merchant.getId(), DEFAULT_BRANCH_CODE)
+                .orElseGet(() -> branchRepo.save(Branch.builder()
+                        .merchantId(merchant.getId())
+                        .branchCode(DEFAULT_BRANCH_CODE)
+                        .branchName(normalizeText(merchant.getMerchantName()))
+                        .branchAddress(normalizeText(merchant.getStoreAddress()))
+                        .build()));
     }
 
     private List<String> buildMerchantAccountPhones(String basePhone, int accountCount) {

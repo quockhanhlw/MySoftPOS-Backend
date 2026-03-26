@@ -5,7 +5,7 @@ import lombok.*;
 import java.time.LocalDateTime;
 
 @Entity
-@Table(name = "users")
+@Table(name = "pos_accounts")
 @Getter
 @Setter
 @NoArgsConstructor
@@ -50,6 +50,9 @@ public class User {
     /** Merchant profile this user account belongs to */
     @Column(name = "merchant_id")
     private Long merchantId;
+
+    @Column(name = "branch_id")
+    private Long branchId;
 
     /** Terminal ID (TID / DE 41) — each user maps to one TID */
     @Column(length = 8)

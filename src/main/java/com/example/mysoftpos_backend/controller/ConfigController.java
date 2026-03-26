@@ -3,9 +3,11 @@ package com.example.mysoftpos_backend.controller;
 import com.example.mysoftpos_backend.dto.MerchantDto;
 import com.example.mysoftpos_backend.dto.TerminalDto;
 import com.example.mysoftpos_backend.dto.UserDto;
+import com.example.mysoftpos_backend.entity.Branch;
 import com.example.mysoftpos_backend.entity.Merchant;
 import com.example.mysoftpos_backend.entity.Terminal;
 import com.example.mysoftpos_backend.entity.User;
+import com.example.mysoftpos_backend.repository.BranchRepository;
 import com.example.mysoftpos_backend.repository.MerchantRepository;
 import com.example.mysoftpos_backend.repository.TerminalRepository;
 import com.example.mysoftpos_backend.repository.UserRepository;
@@ -30,6 +32,7 @@ public class ConfigController {
     private final MerchantRepository merchantRepo;
     private final TerminalRepository terminalRepo;
     private final UserRepository userRepo;
+    private final BranchRepository branchRepo;
 
     // ==================== Merchants ====================
 
@@ -85,13 +88,18 @@ public class ConfigController {
 
     @GetMapping("/merchants/{id}/accounts")
     public ResponseEntity<?> getMerchantAccounts(@AuthenticationPrincipal User admin,
-                                                 @PathVariable Long id) {
+                                                 @PathVariable Long id,
+                                                 @RequestParam(name = "branchId", required = false) Long branchId) {
         Merchant merchant = merchantRepo.findById(id).orElse(null);
         if (merchant == null || !Objects.equals(merchant.getAdminId(), admin.getId())) {
             return ResponseEntity.badRequest().body(Map.of("error", "Not found or access denied"));
         }
 
-        return ResponseEntity.ok(userRepo.findByAdminIdAndMerchantIdOrderByIdAsc(admin.getId(), id).stream()
+        List<User> users = branchId != null
+                ? userRepo.findByAdminIdAndMerchantIdAndBranchIdOrderByIdAsc(admin.getId(), id, branchId)
+                : userRepo.findByAdminIdAndMerchantIdOrderByIdAsc(admin.getId(), id);
+
+        return ResponseEntity.ok(users.stream()
                 .map(this::toUserDto)
                 .collect(Collectors.toList()));
     }
@@ -119,7 +127,21 @@ public class ConfigController {
                 .merchant(merchant)
                 .serverIp(body.get("serverIp"))
                 .serverPort(body.containsKey("serverPort") ? Integer.parseInt(body.get("serverPort")) : null)
+                .branchId(parseLong(body.get("branchId")))
+                .posAccountId(parseLong(body.get("posAccountId")))
                 .build();
+        if (t.getBranchId() != null) {
+            Branch branch = branchRepo.findById(t.getBranchId()).orElse(null);
+            if (branch == null || !Objects.equals(branch.getMerchantId(), merchant.getId())) {
+                return ResponseEntity.badRequest().body(Map.of("error", "Branch not found or invalid"));
+            }
+        }
+        if (t.getPosAccountId() != null) {
+            User account = userRepo.findById(t.getPosAccountId()).orElse(null);
+            if (account == null || !Objects.equals(account.getMerchantId(), merchant.getId())) {
+                return ResponseEntity.badRequest().body(Map.of("error", "POS account not found or invalid"));
+            }
+        }
         terminalRepo.save(t);
         return ResponseEntity.status(HttpStatus.CREATED).body(toTerminalDto(t));
     }
@@ -134,6 +156,26 @@ public class ConfigController {
         }
         if (body.containsKey("serverIp")) t.setServerIp(body.get("serverIp"));
         if (body.containsKey("serverPort")) t.setServerPort(Integer.parseInt(body.get("serverPort")));
+        if (body.containsKey("branchId")) {
+            Long branchId = parseLong(body.get("branchId"));
+            if (branchId != null) {
+                Branch branch = branchRepo.findById(branchId).orElse(null);
+                if (branch == null || !Objects.equals(branch.getMerchantId(), t.getMerchant().getId())) {
+                    return ResponseEntity.badRequest().body(Map.of("error", "Branch not found or invalid"));
+                }
+            }
+            t.setBranchId(branchId);
+        }
+        if (body.containsKey("posAccountId")) {
+            Long posAccountId = parseLong(body.get("posAccountId"));
+            if (posAccountId != null) {
+                User account = userRepo.findById(posAccountId).orElse(null);
+                if (account == null || !Objects.equals(account.getMerchantId(), t.getMerchant().getId())) {
+                    return ResponseEntity.badRequest().body(Map.of("error", "POS account not found or invalid"));
+                }
+            }
+            t.setPosAccountId(posAccountId);
+        }
         terminalRepo.save(t);
         return ResponseEntity.ok(toTerminalDto(t));
     }
@@ -163,10 +205,14 @@ public class ConfigController {
         Long merchantId = user.getMerchantId() != null
                 ? user.getMerchantId()
                 : (merchant != null ? merchant.getId() : null);
+        Branch branch = user.getBranchId() != null ? branchRepo.findById(user.getBranchId()).orElse(null) : null;
 
         return UserDto.builder()
                 .id(user.getId())
                 .merchantId(merchantId)
+                .branchId(user.getBranchId())
+                .branchCode(branch != null ? branch.getBranchCode() : null)
+                .branchName(branch != null ? branch.getBranchName() : null)
                 .merchantCode(merchant != null ? merchant.getMerchantCode() : null)
                 .role(user.getRole())
                 .fullName(user.getFullName())
@@ -191,9 +237,18 @@ public class ConfigController {
                 .id(t.getId())
                 .terminalCode(t.getTerminalCode())
                 .merchant(t.getMerchant() != null ? toMerchantDto(t.getMerchant()) : null)
+                .branchId(t.getBranchId())
+                .posAccountId(t.getPosAccountId())
                 .serverIp(t.getServerIp())
                 .serverPort(t.getServerPort())
                 .build();
+    }
+
+    private Long parseLong(String value) {
+        if (value == null || value.trim().isEmpty()) {
+            return null;
+        }
+        return Long.parseLong(value.trim());
     }
 
     private String normalizeBankName(String value) {

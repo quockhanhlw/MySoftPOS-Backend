@@ -21,6 +21,7 @@ public class CreateUserRequest {
     private String businessType;
     private String storeAddress;
     private Long merchantId;
+    private Long branchId;
     private String terminalId;
     private String serverIp;
     private Integer serverPort;

@@ -24,4 +24,10 @@ public class Terminal {
 
     @Column
     private Integer serverPort;
+
+    @Column(name = "branch_id")
+    private Long branchId;
+
+    @Column(name = "pos_account_id")
+    private Long posAccountId;
 }

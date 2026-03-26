@@ -46,6 +46,7 @@ public class SecurityConfig {
                 .requestMatchers("/h2-console/**").permitAll()
                 // Admin-only endpoints
                 .requestMatchers("/api/users/**").hasRole("ADMIN")
+                .requestMatchers("/api/pos-accounts/**").hasRole("ADMIN")
                 .requestMatchers("/api/merchants/**").hasRole("ADMIN")
                 .requestMatchers("/api/terminals/**").hasRole("ADMIN")
                 .requestMatchers("/api/test-suites/**").hasRole("ADMIN")
