@@ -37,11 +37,11 @@ public class TransactionSummary {
     private String terminalCode;
 
     @Lob
-    @Column(name = "request_hex")
+    @Column(name = "request_hex", columnDefinition = "TEXT")
     private String requestHex;
 
     @Lob
-    @Column(name = "response_hex")
+    @Column(name = "response_hex", columnDefinition = "TEXT")
     private String responseHex;
 
     @Column(name = "processing_code", length = 6)
