@@ -2,7 +2,7 @@ package com.example.mysoftpos_backend.controller;
 
 import com.example.mysoftpos_backend.dto.MerchantDto;
 import com.example.mysoftpos_backend.dto.TerminalDto;
-import com.example.mysoftpos_backend.dto.UserDto;
+import com.example.mysoftpos_backend.dto.PosAccountDto;
 import com.example.mysoftpos_backend.entity.Branch;
 import com.example.mysoftpos_backend.entity.Merchant;
 import com.example.mysoftpos_backend.entity.PosAccount;
@@ -120,7 +120,7 @@ public class ConfigController {
                 : userRepo.findByAdminIdAndMerchantIdOrderByIdAsc(admin.getId(), id);
 
         return ResponseEntity.ok(users.stream()
-                .map(this::toUserDto)
+                .map(this::toPosAccountDto)
                 .collect(Collectors.toList()));
     }
 
@@ -159,7 +159,7 @@ public class ConfigController {
         if (t.getPosAccountId() != null) {
             PosAccount account = userRepo.findById(t.getPosAccountId()).orElse(null);
             if (account == null || !Objects.equals(account.getMerchantId(), merchant.getId())) {
-                return ResponseEntity.badRequest().body(Map.of("error", "POS account not found or invalid"));
+                return ResponseEntity.badRequest().body(Map.of("error", "Pos account not found or invalid"));
             }
         }
         terminalRepo.save(t);
@@ -191,7 +191,7 @@ public class ConfigController {
             if (posAccountId != null) {
                 PosAccount account = userRepo.findById(posAccountId).orElse(null);
                 if (account == null || !Objects.equals(account.getMerchantId(), t.getMerchant().getId())) {
-                    return ResponseEntity.badRequest().body(Map.of("error", "POS account not found or invalid"));
+                    return ResponseEntity.badRequest().body(Map.of("error", "Pos account not found or invalid"));
                 }
             }
             t.setPosAccountId(posAccountId);
@@ -220,7 +220,7 @@ public class ConfigController {
                 .build();
     }
 
-    private UserDto toUserDto(PosAccount user) {
+    private PosAccountDto toPosAccountDto(PosAccount user) {
         Merchant merchant = user.getMerchantId() != null
                 ? merchantRepo.findById(user.getMerchantId()).orElse(null)
                 : merchantRepo.findByOwnerUserId(user.getId()).orElse(null);
@@ -229,7 +229,7 @@ public class ConfigController {
                 : (merchant != null ? merchant.getId() : null);
         Branch branch = user.getBranchId() != null ? branchRepo.findById(user.getBranchId()).orElse(null) : null;
 
-        return UserDto.builder()
+        return PosAccountDto.builder()
                 .id(user.getId())
                 .merchantId(merchantId)
                 .branchId(user.getBranchId())

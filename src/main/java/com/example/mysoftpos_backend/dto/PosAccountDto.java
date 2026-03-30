@@ -34,33 +34,5 @@ public class PosAccountDto {
     private boolean active;
     private boolean online;
 
-    public static PosAccountDto fromUserDto(UserDto userDto) {
-        if (userDto == null) {
-            return null;
-        }
-        return PosAccountDto.builder()
-                .id(userDto.getId())
-                .merchantId(userDto.getMerchantId())
-                .branchId(userDto.getBranchId())
-                .branchCode(userDto.getBranchCode())
-                .branchName(userDto.getBranchName())
-                .merchantCode(userDto.getMerchantCode())
-                .role(userDto.getRole())
-                .fullName(userDto.getFullName())
-                .username(userDto.getUsername())
-                .phone(userDto.getPhone())
-                .email(userDto.getEmail())
-                .dob(userDto.getDob())
-                .gender(userDto.getGender())
-                .storeName(userDto.getStoreName())
-                .bankName(userDto.getBankName())
-                .businessType(userDto.getBusinessType())
-                .storeAddress(userDto.getStoreAddress())
-                .phoneVerified(userDto.getPhoneVerified())
-                .terminalId(userDto.getTerminalId())
-                .active(userDto.isActive())
-                .online(userDto.isOnline())
-                .build();
-    }
 }
 

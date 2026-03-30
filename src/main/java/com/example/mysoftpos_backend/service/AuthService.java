@@ -296,7 +296,7 @@ public class AuthService {
                 .accessToken(accessToken)
                 .refreshToken(refreshToken)
                 .posAccount(dto)
-                .user(UserDto.fromPosAccountDto(dto))
+                .user(dto)
                 .build();
     }
 

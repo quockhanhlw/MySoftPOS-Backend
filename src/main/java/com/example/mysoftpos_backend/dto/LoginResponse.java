@@ -10,8 +10,8 @@ public class LoginResponse {
     private PosAccountDto posAccount;
 
     /**
-     * Legacy alias for older app builds expecting `user` in login payload.
+     * Temporary alias for older app builds expecting `user` in login payload.
      */
     @JsonProperty("user")
-    private UserDto user;
+    private PosAccountDto user;
 }

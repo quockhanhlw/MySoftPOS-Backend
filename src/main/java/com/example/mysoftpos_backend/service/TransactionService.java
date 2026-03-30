@@ -87,13 +87,6 @@ public class TransactionService {
                 .map(this::toDto).collect(Collectors.toList());
     }
 
-    /**
-     * @deprecated Use {@link #getByPosAccount(Long)}.
-     */
-    @Deprecated
-    public List<TransactionSummaryDto> getByUser(Long userId) {
-        return getByPosAccount(userId);
-    }
 
     private TransactionSummaryDto toDto(TransactionSummary t) {
         return TransactionSummaryDto.builder()

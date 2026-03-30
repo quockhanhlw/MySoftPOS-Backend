@@ -45,9 +45,4 @@ public class TransactionController {
         return ResponseEntity.ok(txnService.getByPosAccount(posAccountId));
     }
 
-    /** Legacy compatibility route; use /api/transactions/pos-accounts/{posAccountId}. */
-    @GetMapping("/user/{userId}")
-    public ResponseEntity<List<TransactionSummaryDto>> getByUser(@PathVariable Long userId) {
-        return ResponseEntity.ok(txnService.getByPosAccount(userId));
-    }
 }

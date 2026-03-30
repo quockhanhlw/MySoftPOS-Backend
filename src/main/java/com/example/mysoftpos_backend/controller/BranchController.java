@@ -3,7 +3,6 @@ package com.example.mysoftpos_backend.controller;
 import com.example.mysoftpos_backend.dto.BranchDto;
 import com.example.mysoftpos_backend.dto.CreateBranchRequest;
 import com.example.mysoftpos_backend.dto.PosAccountDto;
-import com.example.mysoftpos_backend.dto.UserDto;
 import com.example.mysoftpos_backend.entity.Branch;
 import com.example.mysoftpos_backend.entity.Merchant;
 import com.example.mysoftpos_backend.entity.PosAccount;
@@ -127,43 +126,14 @@ public class BranchController {
             return ResponseEntity.badRequest().body(Map.of("error", "Branch not found"));
         }
 
-        List<UserDto> accounts = userRepo
+        List<PosAccountDto> accounts = userRepo
                 .findByAdminIdAndMerchantIdAndBranchIdOrderByIdAsc(admin.getId(), merchantId, branchId)
                 .stream()
                 .map(posAccountServiceCore::toPosAccountDto)
-                .map(this::toUserDto)
                 .toList();
         return ResponseEntity.ok(accounts);
     }
 
-    private UserDto toUserDto(PosAccountDto dto) {
-        if (dto == null) {
-            return null;
-        }
-        return UserDto.builder()
-                .id(dto.getId())
-                .merchantId(dto.getMerchantId())
-                .branchId(dto.getBranchId())
-                .branchCode(dto.getBranchCode())
-                .branchName(dto.getBranchName())
-                .merchantCode(dto.getMerchantCode())
-                .role(dto.getRole())
-                .fullName(dto.getFullName())
-                .username(dto.getUsername())
-                .phone(dto.getPhone())
-                .email(dto.getEmail())
-                .dob(dto.getDob())
-                .gender(dto.getGender())
-                .storeName(dto.getStoreName())
-                .bankName(dto.getBankName())
-                .businessType(dto.getBusinessType())
-                .storeAddress(dto.getStoreAddress())
-                .phoneVerified(dto.getPhoneVerified())
-                .terminalId(dto.getTerminalId())
-                .active(dto.isActive())
-                .online(dto.isOnline())
-                .build();
-    }
 
     private Branch ensureMainBranch(Merchant merchant) {
         return branchRepo.findByMerchantIdAndBranchCode(merchant.getId(), DEFAULT_BRANCH_CODE)

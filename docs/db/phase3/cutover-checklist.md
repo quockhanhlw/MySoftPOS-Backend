@@ -27,7 +27,6 @@
 - [ ] Login ADMIN works
 - [ ] Login USER/POS account works
 - [ ] Canonical `/api/pos-accounts` CRUD works
-- [ ] Legacy `/api/users` compatibility endpoint still works
 - [ ] Merchant/branch/account mapping still intact
 - [ ] Terminal mapping (`pos_account_id`) still valid
 
@@ -52,7 +51,6 @@ Rollback immediately if any of the following happens within the stabilization wi
 
 - [ ] Current deployed version is at least `R+1` after deprecation announcement
 - [ ] Planned hard removal is no later than `R+2`
-- [ ] No traffic to legacy `/api/users` compatibility path
 - [ ] No old app versions requiring legacy table/view
 - [ ] Execute cleanup script (`rollback_cleanup.sql` is no longer needed after this point)
 

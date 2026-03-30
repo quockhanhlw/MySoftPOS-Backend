@@ -13,10 +13,6 @@ public interface TransactionSummaryRepository extends JpaRepository<TransactionS
     @EntityGraph(attributePaths = "posAccount")
     List<TransactionSummary> findByPosAccountIdOrderByTxnTimestampDesc(Long posAccountId);
 
-    // Legacy alias retained for compatibility while DB join column is still user_id.
-    default List<TransactionSummary> findByUserIdOrderByTxnTimestampDesc(Long userId) {
-        return findByPosAccountIdOrderByTxnTimestampDesc(userId);
-    }
 
     @EntityGraph(attributePaths = "posAccount")
     List<TransactionSummary> findByTerminalIdOrderByTxnTimestampDesc(Long terminalId);

@@ -64,6 +64,11 @@ app:
 .\mvnw clean package
 ```
 
+## API endpoint naming
+
+- Canonical account endpoint: `/api/pos-accounts`
+- Canonical transaction-by-account endpoint: `/api/transactions/pos-accounts/{posAccountId}`
+
 ## Flyway rollout
 
 Chạy precheck trước khi deploy migration constraints/index cho `merchants`:

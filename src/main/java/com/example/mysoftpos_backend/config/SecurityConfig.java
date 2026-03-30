@@ -26,7 +26,7 @@ import java.util.List;
 public class SecurityConfig {
 
     private final JwtAuthFilter jwtAuthFilter;
-    private final PosAccountRepository userRepository;
+    private final PosAccountRepository posAccountRepository;
 
     @Bean
     public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
@@ -44,8 +44,7 @@ public class SecurityConfig {
                 .requestMatchers("/api/auth/forgot-password/**").permitAll()
                 .requestMatchers("/swagger-ui/**", "/api-docs/**", "/v3/api-docs/**").permitAll()
                 .requestMatchers("/h2-console/**").permitAll()
-                // Admin-only endpoints (canonical + legacy compatibility)
-                .requestMatchers("/api/users/**").hasRole("ADMIN") // deprecated compatibility route
+                // Admin-only endpoints
                 .requestMatchers("/api/pos-accounts/**").hasRole("ADMIN")
                 .requestMatchers("/api/merchants/**").hasRole("ADMIN")
                 .requestMatchers("/api/terminals/**").hasRole("ADMIN")
@@ -78,7 +77,7 @@ public class SecurityConfig {
     @Bean
     public UserDetailsService userDetailsService() {
         return username -> {
-            PosAccount user = userRepository.findByUsername(username)
+            PosAccount user = posAccountRepository.findByUsername(username)
                     .orElseThrow(() -> new UsernameNotFoundException("Pos account not found"));
 
             return org.springframework.security.core.userdetails.User

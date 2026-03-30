@@ -53,7 +53,7 @@ public class PosAccountController {
                                               @PathVariable Long id) {
         try {
             posAccountService.deletePosAccount(admin.getId(), id);
-            return ResponseEntity.ok(Map.of("message", "POS account deleted"));
+            return ResponseEntity.ok(Map.of("message", "Pos account deleted"));
         } catch (RuntimeException e) {
             return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
         }
