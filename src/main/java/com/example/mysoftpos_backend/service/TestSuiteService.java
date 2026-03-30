@@ -106,6 +106,7 @@ public class TestSuiteService {
                 .reqFilePath(req.getReqFilePath())
                 .resFilePath(req.getResFilePath())
                 .scheme(req.getScheme())
+                .track2(req.getTrack2())
                 .fieldConfigJson(req.getFieldConfigJson())
                 .build();
         caseRepo.save(tc);
@@ -138,6 +139,8 @@ public class TestSuiteService {
             tc.setResFilePath(req.getResFilePath());
         if (req.getScheme() != null)
             tc.setScheme(req.getScheme());
+        if (req.getTrack2() != null)
+            tc.setTrack2(req.getTrack2());
         if (req.getFieldConfigJson() != null)
             tc.setFieldConfigJson(req.getFieldConfigJson());
         caseRepo.save(tc);
@@ -196,6 +199,7 @@ public class TestSuiteService {
                             .reqFilePath(caseDto.getReqFilePath())
                             .resFilePath(caseDto.getResFilePath())
                             .scheme(caseDto.getScheme())
+                            .track2(caseDto.getTrack2())
                             .fieldConfigJson(caseDto.getFieldConfigJson())
                             .build();
                     caseRepo.save(tc);
@@ -234,6 +238,7 @@ public class TestSuiteService {
                 .reqFilePath(tc.getReqFilePath())
                 .resFilePath(tc.getResFilePath())
                 .scheme(tc.getScheme())
+                .track2(tc.getTrack2())
                 .fieldConfigJson(tc.getFieldConfigJson())
                 .createdAt(tc.getCreatedAt() != null ? tc.getCreatedAt().toString() : null)
                 .build();

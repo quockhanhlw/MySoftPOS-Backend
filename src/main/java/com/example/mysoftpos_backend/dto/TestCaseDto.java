@@ -22,6 +22,7 @@ public class TestCaseDto {
     private String reqFilePath;
     private String resFilePath;
     private String scheme;
+    private String track2;
     private String fieldConfigJson;
     private String createdAt;
 }

@@ -51,6 +51,9 @@ public class TestCase {
     @Column(length = 30)
     private String scheme; // Napas, Visa, etc.
 
+    @Column(length = 40)
+    private String track2;
+
     /** JSON map of additional ISO8583 field overrides */
     @Column(columnDefinition = "TEXT")
     private String fieldConfigJson;
