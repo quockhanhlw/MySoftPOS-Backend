@@ -52,8 +52,9 @@ public class PosAccount {
     @Column(name = "branch_id")
     private Long branchId;
 
-    /** Terminal ID (TID / DE 41) — each account maps to one TID */
+    /** Terminal ID (TID / DE 41) — DEPRECATED since V8, moved to terminals table */
     @Column(length = 8)
+    @Deprecated(since = "V8", forRemoval = false)
     private String terminalId;
 
     @Column(nullable = false)

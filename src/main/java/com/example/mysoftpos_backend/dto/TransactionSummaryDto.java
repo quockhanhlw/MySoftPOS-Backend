@@ -16,6 +16,8 @@ public class TransactionSummaryDto {
     private String deviceId;
     private String txnTimestamp;
     private String syncedAt;
+    private Long posAccountId;
+    @Deprecated(since = "V18", forRemoval = false)
     private Long userId;
     private String username;
     private String requestHex;
