@@ -2,7 +2,7 @@ package com.example.mysoftpos_backend.controller;
 
 import com.example.mysoftpos_backend.dto.TestCaseDto;
 import com.example.mysoftpos_backend.dto.TestSuiteDto;
-import com.example.mysoftpos_backend.entity.User;
+import com.example.mysoftpos_backend.entity.PosAccount;
 import com.example.mysoftpos_backend.service.TestSuiteService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
@@ -23,12 +23,12 @@ public class TestSuiteController {
     // ==================== Suites ====================
 
     @GetMapping
-    public ResponseEntity<List<TestSuiteDto>> getSuites(@AuthenticationPrincipal User admin) {
+    public ResponseEntity<List<TestSuiteDto>> getSuites(@AuthenticationPrincipal PosAccount admin) {
         return ResponseEntity.ok(service.getSuitesByAdmin(admin.getId()));
     }
 
     @GetMapping("/{id}")
-    public ResponseEntity<?> getSuiteWithCases(@AuthenticationPrincipal User admin,
+    public ResponseEntity<?> getSuiteWithCases(@AuthenticationPrincipal PosAccount admin,
                                                 @PathVariable Long id) {
         try {
             return ResponseEntity.ok(service.getSuiteWithCases(admin.getId(), id));
@@ -38,7 +38,7 @@ public class TestSuiteController {
     }
 
     @PostMapping
-    public ResponseEntity<?> createSuite(@AuthenticationPrincipal User admin,
+    public ResponseEntity<?> createSuite(@AuthenticationPrincipal PosAccount admin,
                                           @RequestBody TestSuiteDto req) {
         try {
             return ResponseEntity.status(HttpStatus.CREATED)
@@ -49,7 +49,7 @@ public class TestSuiteController {
     }
 
     @PutMapping("/{id}")
-    public ResponseEntity<?> updateSuite(@AuthenticationPrincipal User admin,
+    public ResponseEntity<?> updateSuite(@AuthenticationPrincipal PosAccount admin,
                                           @PathVariable Long id,
                                           @RequestBody TestSuiteDto req) {
         try {
@@ -60,7 +60,7 @@ public class TestSuiteController {
     }
 
     @DeleteMapping("/{id}")
-    public ResponseEntity<?> deleteSuite(@AuthenticationPrincipal User admin,
+    public ResponseEntity<?> deleteSuite(@AuthenticationPrincipal PosAccount admin,
                                           @PathVariable Long id) {
         try {
             service.deleteSuite(admin.getId(), id);
@@ -73,7 +73,7 @@ public class TestSuiteController {
     // ==================== Cases ====================
 
     @GetMapping("/{suiteId}/cases")
-    public ResponseEntity<?> getCases(@AuthenticationPrincipal User admin,
+    public ResponseEntity<?> getCases(@AuthenticationPrincipal PosAccount admin,
                                        @PathVariable Long suiteId) {
         try {
             return ResponseEntity.ok(service.getCasesBySuite(admin.getId(), suiteId));
@@ -83,7 +83,7 @@ public class TestSuiteController {
     }
 
     @PostMapping("/{suiteId}/cases")
-    public ResponseEntity<?> createCase(@AuthenticationPrincipal User admin,
+    public ResponseEntity<?> createCase(@AuthenticationPrincipal PosAccount admin,
                                          @PathVariable Long suiteId,
                                          @RequestBody TestCaseDto req) {
         try {
@@ -95,7 +95,7 @@ public class TestSuiteController {
     }
 
     @PutMapping("/cases/{caseId}")
-    public ResponseEntity<?> updateCase(@AuthenticationPrincipal User admin,
+    public ResponseEntity<?> updateCase(@AuthenticationPrincipal PosAccount admin,
                                          @PathVariable Long caseId,
                                          @RequestBody TestCaseDto req) {
         try {
@@ -106,7 +106,7 @@ public class TestSuiteController {
     }
 
     @DeleteMapping("/cases/{caseId}")
-    public ResponseEntity<?> deleteCase(@AuthenticationPrincipal User admin,
+    public ResponseEntity<?> deleteCase(@AuthenticationPrincipal PosAccount admin,
                                          @PathVariable Long caseId) {
         try {
             service.deleteCase(admin.getId(), caseId);
@@ -119,7 +119,7 @@ public class TestSuiteController {
     // ==================== Bulk Sync (push from app) ====================
 
     @PostMapping("/sync")
-    public ResponseEntity<?> bulkSync(@AuthenticationPrincipal User admin,
+    public ResponseEntity<?> bulkSync(@AuthenticationPrincipal PosAccount admin,
                                        @RequestBody List<TestSuiteDto> suites) {
         try {
             int count = service.bulkSync(admin.getId(), suites);

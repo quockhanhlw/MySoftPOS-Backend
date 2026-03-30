@@ -10,6 +10,8 @@ public class TransactionSummaryDto {
     private String status;
     private String maskedPan;
     private String cardScheme;
+    private Long terminalId;
+    private Long cardId;
     private String terminalCode;
     private String deviceId;
     private String txnTimestamp;
@@ -21,6 +23,5 @@ public class TransactionSummaryDto {
     private String processingCode;
     private String currencyCode;
     private String rrn;
-    private String ownerUsername;
 }
 

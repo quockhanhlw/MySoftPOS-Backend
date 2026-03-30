@@ -9,6 +9,10 @@ public interface MerchantRepository extends JpaRepository<Merchant, Long> {
     List<Merchant> findByAdminId(Long adminId);
     Optional<Merchant> findByOwnerUserId(Long ownerUserId);
     Optional<Merchant> findByMerchantCode(String merchantCode);
+    Optional<Merchant> findByEmail(String email);
+    Optional<Merchant> findByPhone(String phone);
     boolean existsByMerchantCode(String merchantCode);
+    boolean existsByEmail(String email);
+    boolean existsByPhone(String phone);
     void deleteByOwnerUserId(Long ownerUserId);
 }

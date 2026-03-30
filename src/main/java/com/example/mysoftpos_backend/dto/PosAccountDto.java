@@ -31,8 +31,6 @@ public class PosAccountDto {
     private String storeAddress;
     private Boolean phoneVerified;
     private String terminalId;
-    private String serverIp;
-    private Integer serverPort;
     private boolean active;
     private boolean online;
 
@@ -60,8 +58,6 @@ public class PosAccountDto {
                 .storeAddress(userDto.getStoreAddress())
                 .phoneVerified(userDto.getPhoneVerified())
                 .terminalId(userDto.getTerminalId())
-                .serverIp(userDto.getServerIp())
-                .serverPort(userDto.getServerPort())
                 .active(userDto.isActive())
                 .online(userDto.isOnline())
                 .build();

@@ -10,12 +10,17 @@ public interface TransactionSummaryRepository extends JpaRepository<TransactionS
     Optional<TransactionSummary> findByTraceNumber(String traceNumber);
     boolean existsByTraceNumber(String traceNumber);
 
-    @EntityGraph(attributePaths = "user")
-    List<TransactionSummary> findByUserIdOrderByTxnTimestampDesc(Long userId);
+    @EntityGraph(attributePaths = "posAccount")
+    List<TransactionSummary> findByPosAccountIdOrderByTxnTimestampDesc(Long posAccountId);
 
-    @EntityGraph(attributePaths = "user")
-    List<TransactionSummary> findByTerminalCodeOrderByTxnTimestampDesc(String terminalCode);
+    // Legacy alias retained for compatibility while DB join column is still user_id.
+    default List<TransactionSummary> findByUserIdOrderByTxnTimestampDesc(Long userId) {
+        return findByPosAccountIdOrderByTxnTimestampDesc(userId);
+    }
 
-    @EntityGraph(attributePaths = "user")
+    @EntityGraph(attributePaths = "posAccount")
+    List<TransactionSummary> findByTerminalIdOrderByTxnTimestampDesc(Long terminalId);
+
+    @EntityGraph(attributePaths = "posAccount")
     List<TransactionSummary> findAllByOrderByTxnTimestampDesc();
 }

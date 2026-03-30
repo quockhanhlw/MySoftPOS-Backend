@@ -7,6 +7,11 @@ public class MerchantDto {
     private Long id;
     private String merchantCode;
     private String merchantName;
+    private String fullName;
+    private String phone;
+    private String email;
+    private String dob;
+    private String gender;
     private String bankName;
     private Long adminId;
     private Long ownerUserId;

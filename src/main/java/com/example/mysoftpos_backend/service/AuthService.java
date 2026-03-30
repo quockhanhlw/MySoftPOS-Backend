@@ -3,10 +3,10 @@ package com.example.mysoftpos_backend.service;
 import com.example.mysoftpos_backend.dto.*;
 import com.example.mysoftpos_backend.entity.Branch;
 import com.example.mysoftpos_backend.entity.Merchant;
-import com.example.mysoftpos_backend.entity.User;
+import com.example.mysoftpos_backend.entity.PosAccount;
 import com.example.mysoftpos_backend.repository.BranchRepository;
 import com.example.mysoftpos_backend.repository.MerchantRepository;
-import com.example.mysoftpos_backend.repository.UserRepository;
+import com.example.mysoftpos_backend.repository.PosAccountRepository;
 import com.example.mysoftpos_backend.security.JwtTokenProvider;
 import lombok.RequiredArgsConstructor;
 import org.slf4j.Logger;
@@ -42,7 +42,7 @@ public class AuthService {
     private static final String DEFAULT_BRANCH_CODE = "MAIN";
     private static final java.util.regex.Pattern BANK_NAME_PATTERN = java.util.regex.Pattern.compile("^[A-Z0-9]{2,22}$");
 
-    private final UserRepository userRepo;
+    private final PosAccountRepository userRepo;
     private final MerchantRepository merchantRepo;
     private final BranchRepository branchRepo;
     private final PasswordEncoder passwordEncoder;
@@ -75,29 +75,29 @@ public class AuthService {
         validateBankNameOrThrow(bankName);
         String businessType = normalizeBusinessType(req.getBusinessType());
         String storeAddress = normalizeText(req.getStoreAddress());
-        String branchAddresses = normalizeText(req.getBranchAddresses());
-        Integer branchCount = normalizeBranchCount(req.getBranchCount());
         int accountCount = normalizeAccountCount(req.getAccountCount());
         Long assignedAdminId = resolveAssignedAdminId();
         List<String> accountUsernames = buildMerchantAccountUsernames(basePhone, accountCount);
 
         validateAccountUsernamesAvailable(accountUsernames);
-        if (email != null && userRepo.existsByEmail(email)) {
+        if (basePhone == null || basePhone.isBlank()) {
+            throw new RuntimeException("Phone number is required");
+        }
+        if (merchantRepo.existsByPhone(basePhone)) {
+            throw new RuntimeException("Phone number already registered");
+        }
+        if (email != null && merchantRepo.existsByEmail(email)) {
             throw new RuntimeException("Email already registered");
         }
         if (req.getPassword() == null || req.getPassword().length() < MIN_PASSWORD_LENGTH) {
             throw new RuntimeException("Password must be at least " + MIN_PASSWORD_LENGTH + " characters");
         }
 
-        User user = User.builder()
-                .phone(accountUsernames.get(0))
-                .username(accountUsernames.get(0))
+        String primaryUsername = accountUsernames.get(0);
+        PosAccount user = PosAccount.builder()
+                .username(primaryUsername)
                 .passwordHash(passwordEncoder.encode(req.getPassword()))
                 .role(USER_ROLE)
-                .fullName(fullName)
-                .email(email)
-                .dob(dob)
-                .gender(gender)
                 .phoneVerified(true)
                 .adminId(assignedAdminId)
                 .build();
@@ -106,14 +106,16 @@ public class AuthService {
         Merchant merchant = Merchant.builder()
                 .merchantCode(generateMerchantCode(basePhone, user.getId()))
                 .merchantName(storeName != null ? storeName : fullName)
+                .fullName(fullName)
+                .phone(basePhone)
+                .email(email)
+                .dob(dob)
+                .gender(gender)
                 .bankName(bankName != null ? bankName : "MYSOFTPOS BANK")
                 .adminId(assignedAdminId)
                 .ownerUserId(user.getId())
                 .businessType(businessType)
                 .storeAddress(storeAddress)
-                .branchCount(branchCount)
-                .branchAddresses(branchAddresses)
-                .accountCount(accountCount)
                 .build();
         merchant = merchantRepo.save(merchant);
 
@@ -133,10 +135,7 @@ public class AuthService {
 
     public LoginResponse login(LoginRequest req) {
         String identifier = normalizeIdentifier(req.getUsername());
-
-        User user = userRepo.findByUsername(identifier)
-                .or(() -> userRepo.findByEmail(identifier))
-                .orElseThrow(() -> new RuntimeException("Invalid credentials"));
+        PosAccount user = resolveLoginUserByIdentifier(identifier);
 
         // PA-DSS 3.x: Account lockout check
         if (user.getLockedUntil() != null && user.getLockedUntil().isAfter(LocalDateTime.now())) {
@@ -170,9 +169,8 @@ public class AuthService {
             throw new RuntimeException("Invalid refresh token");
         }
         String username = jwtProvider.getSubjectFromToken(refreshToken);
-        User user = userRepo.findByUsername(username)
-                .or(() -> userRepo.findByPhone(username))
-                .orElseThrow(() -> new RuntimeException("User not found"));
+        PosAccount user = userRepo.findByUsername(username)
+                .orElseThrow(() -> new RuntimeException("Pos account not found"));
         return buildLoginResponse(user);
     }
 
@@ -182,9 +180,14 @@ public class AuthService {
             throw new RuntimeException("Email is required");
         }
 
-        User user = userRepo.findByEmail(email).orElse(null);
-        if (user == null || !user.isActive()) {
+        Merchant merchant = merchantRepo.findByEmail(email).orElse(null);
+        if (merchant == null || merchant.getOwnerUserId() == null) {
             // Do not leak account existence.
+            return Map.of("message", "If your email exists, a verification code has been sent.");
+        }
+
+        PosAccount user = userRepo.findById(merchant.getOwnerUserId()).orElse(null);
+        if (user == null || !user.isActive()) {
             return Map.of("message", "If your email exists, a verification code has been sent.");
         }
 
@@ -207,7 +210,7 @@ public class AuthService {
     }
 
     public Map<String, String> verifyForgotPasswordCode(ForgotPasswordVerifyCodeRequest req) {
-        User user = getUserForForgotPassword(req.getEmail());
+        PosAccount user = getUserForForgotPassword(req.getEmail());
         validateForgotCode(user, req.getCode());
         user.setForgotPasswordCodeVerifiedAt(LocalDateTime.now());
         userRepo.save(user);
@@ -222,7 +225,7 @@ public class AuthService {
             throw new RuntimeException("Password must be at least " + MIN_PASSWORD_LENGTH + " characters");
         }
 
-        User user = getUserForForgotPassword(req.getEmail());
+        PosAccount user = getUserForForgotPassword(req.getEmail());
         validateForgotCode(user, req.getCode());
 
         user.setPasswordHash(passwordEncoder.encode(req.getNewPassword()));
@@ -233,7 +236,7 @@ public class AuthService {
         return Map.of("message", "Password reset successfully");
     }
 
-    public Map<String, String> changePassword(User currentUser, ChangePasswordRequest req) {
+    public Map<String, String> changePassword(PosAccount currentUser, ChangePasswordRequest req) {
         if (currentUser == null || currentUser.getId() == null) {
             throw new RuntimeException("Unauthorized");
         }
@@ -244,8 +247,8 @@ public class AuthService {
             throw new RuntimeException("Password must be at least " + MIN_PASSWORD_LENGTH + " characters");
         }
 
-        User user = userRepo.findById(currentUser.getId())
-                .orElseThrow(() -> new RuntimeException("User not found"));
+        PosAccount user = userRepo.findById(currentUser.getId())
+                .orElseThrow(() -> new RuntimeException("Pos account not found"));
 
         if (!passwordEncoder.matches(req.getCurrentPassword(), user.getPasswordHash())) {
             throw new RuntimeException("Current password is incorrect");
@@ -258,7 +261,7 @@ public class AuthService {
         return Map.of("message", "Password changed successfully");
     }
 
-    private LoginResponse buildLoginResponse(User user) {
+    private LoginResponse buildLoginResponse(PosAccount user) {
         String accessToken = jwtProvider.generateAccessToken(user.getUsername(), user.getRole());
         String refreshToken = jwtProvider.generateRefreshToken(user.getUsername());
         Merchant merchant = user.getMerchantId() != null
@@ -266,7 +269,7 @@ public class AuthService {
                 : merchantRepo.findByOwnerUserId(user.getId()).orElse(null);
         Branch branch = user.getBranchId() != null ? branchRepo.findById(user.getBranchId()).orElse(null) : null;
 
-        UserDto dto = UserDto.builder()
+        PosAccountDto dto = PosAccountDto.builder()
                 .id(user.getId())
                 .merchantId(user.getMerchantId())
                 .branchId(user.getBranchId())
@@ -274,32 +277,31 @@ public class AuthService {
                 .branchName(branch != null ? branch.getBranchName() : null)
                 .merchantCode(merchant != null ? merchant.getMerchantCode() : null)
                 .role(user.getRole())
-                .fullName(user.getFullName())
+                .fullName(merchant != null ? merchant.getFullName() : null)
                 .username(user.getUsername())
-                .phone(user.getPhone())
-                .email(user.getEmail())
-                .dob(user.getDob())
-                .gender(user.getGender())
+                .phone(merchant != null ? merchant.getPhone() : null)
+                .email(merchant != null ? merchant.getEmail() : null)
+                .dob(merchant != null ? merchant.getDob() : null)
+                .gender(merchant != null ? merchant.getGender() : null)
                 .storeName(merchant != null ? merchant.getMerchantName() : null)
                 .bankName(merchant != null ? merchant.getBankName() : null)
                 .businessType(merchant != null ? merchant.getBusinessType() : null)
                 .storeAddress(merchant != null ? merchant.getStoreAddress() : null)
                 .phoneVerified(user.isPhoneVerified())
                 .terminalId(user.getTerminalId())
-                .serverIp(user.getServerIp())
-                .serverPort(user.getServerPort())
                 .active(user.isActive())
                 .build();
 
         return LoginResponse.builder()
                 .accessToken(accessToken)
                 .refreshToken(refreshToken)
-                .user(dto)
+                .posAccount(dto)
+                .user(UserDto.fromPosAccountDto(dto))
                 .build();
     }
 
     private Long resolveAssignedAdminId() {
-        User admin = userRepo.findFirstByRoleOrderByIdAsc(ADMIN_ROLE).orElse(null);
+        PosAccount admin = userRepo.findFirstByRoleOrderByIdAsc(ADMIN_ROLE).orElse(null);
         return admin != null ? admin.getId() : null;
     }
 
@@ -321,26 +323,19 @@ public class AuthService {
     }
 
     private void createAdditionalMerchantAccounts(String rawPassword,
-                                                  User primaryUser,
+                                                  PosAccount primaryUser,
                                                   Merchant merchant,
                                                   Branch mainBranch,
                                                   Long assignedAdminId,
                                                   List<String> accountUsernames) {
-        List<User> createdAccounts = new ArrayList<>();
+        List<PosAccount> createdAccounts = new ArrayList<>();
         for (int accountIndex = 2; accountIndex <= accountUsernames.size(); accountIndex++) {
             String accountUsername = accountUsernames.get(accountIndex - 1);
-            String accountEmail = buildUniqueSubAccountEmail(primaryUser.getEmail(), accountIndex);
-            String accountName = buildSubAccountName(primaryUser.getFullName(), accountIndex);
 
-            User account = User.builder()
-                    .phone(accountUsername)
+            PosAccount account = PosAccount.builder()
                     .username(accountUsername)
                     .passwordHash(passwordEncoder.encode(rawPassword))
                     .role(USER_ROLE)
-                    .fullName(accountName)
-                    .email(accountEmail)
-                    .dob(primaryUser.getDob())
-                    .gender(primaryUser.getGender())
                     .phoneVerified(true)
                     .adminId(assignedAdminId)
                     .merchantId(merchant.getId())
@@ -393,39 +388,17 @@ public class AuthService {
         }
     }
 
-    private String buildSubAccountName(String fullName, int accountIndex) {
-        String baseName = fullName == null || fullName.isBlank() ? "Merchant account" : fullName.trim();
-        return baseName + " #" + accountIndex;
-    }
-
-    private String buildUniqueSubAccountEmail(String baseEmail, int accountIndex) {
-        if (baseEmail == null || baseEmail.isBlank()) {
-            return null;
+    private PosAccount resolveLoginUserByIdentifier(String identifier) {
+        PosAccount byUsername = userRepo.findByUsername(identifier).orElse(null);
+        if (byUsername != null) {
+            return byUsername;
         }
-
-        String normalized = baseEmail.trim().toLowerCase(Locale.ROOT);
-        int atIndex = normalized.indexOf('@');
-        if (atIndex <= 0 || atIndex == normalized.length() - 1) {
-            return null;
+        Merchant merchant = merchantRepo.findByEmail(identifier).orElse(null);
+        if (merchant != null && merchant.getOwnerUserId() != null) {
+            return userRepo.findById(merchant.getOwnerUserId())
+                    .orElseThrow(() -> new RuntimeException("Invalid credentials"));
         }
-
-        String local = normalized.substring(0, atIndex);
-        String domain = normalized.substring(atIndex + 1);
-        for (int attempt = 0; attempt < 1000; attempt++) {
-            String candidate = local + "+a" + accountIndex + (attempt == 0 ? "" : attempt) + "@" + domain;
-            if (candidate.length() > 100) {
-                int overflow = candidate.length() - 100;
-                if (local.length() <= overflow) {
-                    continue;
-                }
-                String trimmedLocal = local.substring(0, local.length() - overflow);
-                candidate = trimmedLocal + "+a" + accountIndex + (attempt == 0 ? "" : attempt) + "@" + domain;
-            }
-            if (!userRepo.existsByEmail(candidate)) {
-                return candidate;
-            }
-        }
-        return null;
+        throw new RuntimeException("Invalid credentials");
     }
 
     private String normalizeIdentifier(String value) {
@@ -515,16 +488,21 @@ public class AuthService {
         return String.format(Locale.ROOT, "M%014d", Math.abs(System.currentTimeMillis() % 100_000_000_000_000L));
     }
 
-    private User getUserForForgotPassword(String rawEmail) {
+    private PosAccount getUserForForgotPassword(String rawEmail) {
         String email = normalizeEmail(rawEmail);
         if (email == null) {
             throw new RuntimeException("Email is required");
         }
-        return userRepo.findByEmail(email)
+        Merchant merchant = merchantRepo.findByEmail(email)
+                .orElseThrow(() -> new RuntimeException("Invalid or expired verification code"));
+        if (merchant.getOwnerUserId() == null) {
+            throw new RuntimeException("Invalid or expired verification code");
+        }
+        return userRepo.findById(merchant.getOwnerUserId())
                 .orElseThrow(() -> new RuntimeException("Invalid or expired verification code"));
     }
 
-    private void validateForgotCode(User user, String code) {
+    private void validateForgotCode(PosAccount user, String code) {
         if (code == null || code.isBlank()) {
             throw new RuntimeException("Verification code is required");
         }
@@ -550,7 +528,7 @@ public class AuthService {
         }
     }
 
-    private void clearForgotPasswordState(User user) {
+    private void clearForgotPasswordState(PosAccount user) {
         user.setForgotPasswordCodeHash(null);
         user.setForgotPasswordCodeExpiresAt(null);
         user.setForgotPasswordCodeVerifiedAt(null);
@@ -562,7 +540,7 @@ public class AuthService {
         return String.format(java.util.Locale.ROOT, "%06d", value);
     }
 
-    private void sendForgotPasswordEmailWithRetry(User user, String code) {
+    private void sendForgotPasswordEmailWithRetry(PosAccount user, String code) {
         RuntimeException lastException = null;
         for (int attempt = 1; attempt <= FORGOT_EMAIL_MAX_SEND_ATTEMPTS; attempt++) {
             try {
@@ -574,7 +552,7 @@ public class AuthService {
                     throw ex;
                 }
                 log.warn("Retry forgot-password email send attempt {}/{} for {} after timeout",
-                        attempt + 1, FORGOT_EMAIL_MAX_SEND_ATTEMPTS, user.getEmail());
+                        attempt + 1, FORGOT_EMAIL_MAX_SEND_ATTEMPTS, resolveMerchantEmail(user));
                 sleepQuietly(FORGOT_EMAIL_RETRY_DELAY_MS);
             }
         }
@@ -584,8 +562,8 @@ public class AuthService {
         }
     }
 
-    private void sendForgotPasswordEmail(User user, String code) {
-        String email = user.getEmail();
+    private void sendForgotPasswordEmail(PosAccount user, String code) {
+        String email = resolveMerchantEmail(user);
         if (email == null || email.isBlank()) {
             throw new RuntimeException("User does not have a registered email");
         }
@@ -618,6 +596,16 @@ public class AuthService {
         }
     }
 
+    private String resolveMerchantEmail(PosAccount user) {
+        if (user == null) {
+            return null;
+        }
+        Merchant merchant = user.getMerchantId() != null
+                ? merchantRepo.findById(user.getMerchantId()).orElse(null)
+                : merchantRepo.findByOwnerUserId(user.getId()).orElse(null);
+        return merchant != null ? merchant.getEmail() : null;
+    }
+
     private boolean isTimeoutError(Throwable throwable) {
         Throwable current = throwable;
         while (current != null) {
@@ -646,9 +634,12 @@ public class AuthService {
         }
     }
 
-    private String buildForgotMailBody(User user, String code) {
-        String name = user.getFullName() != null && !user.getFullName().isBlank()
-                ? user.getFullName().trim()
+    private String buildForgotMailBody(PosAccount user, String code) {
+        Merchant merchant = user.getMerchantId() != null
+                ? merchantRepo.findById(user.getMerchantId()).orElse(null)
+                : merchantRepo.findByOwnerUserId(user.getId()).orElse(null);
+        String name = merchant != null && merchant.getFullName() != null && !merchant.getFullName().isBlank()
+                ? merchant.getFullName().trim()
                 : "user";
         return "Hello " + name + ",\n\n"
                 + "Your MySoftPOS verification code is: " + code + "\n"

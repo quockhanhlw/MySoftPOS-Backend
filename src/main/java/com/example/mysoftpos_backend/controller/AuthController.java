@@ -1,7 +1,7 @@
 package com.example.mysoftpos_backend.controller;
 
 import com.example.mysoftpos_backend.dto.*;
-import com.example.mysoftpos_backend.entity.User;
+import com.example.mysoftpos_backend.entity.PosAccount;
 import com.example.mysoftpos_backend.service.AuthService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -75,7 +75,7 @@ public class AuthController {
     }
 
     @PutMapping("/change-password")
-    public ResponseEntity<?> changePassword(@AuthenticationPrincipal User user,
+    public ResponseEntity<?> changePassword(@AuthenticationPrincipal PosAccount user,
                                             @Valid @RequestBody ChangePasswordRequest req) {
         try {
             return ResponseEntity.ok(authService.changePassword(user, req));

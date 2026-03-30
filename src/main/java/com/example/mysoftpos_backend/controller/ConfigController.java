@@ -5,12 +5,12 @@ import com.example.mysoftpos_backend.dto.TerminalDto;
 import com.example.mysoftpos_backend.dto.UserDto;
 import com.example.mysoftpos_backend.entity.Branch;
 import com.example.mysoftpos_backend.entity.Merchant;
+import com.example.mysoftpos_backend.entity.PosAccount;
 import com.example.mysoftpos_backend.entity.Terminal;
-import com.example.mysoftpos_backend.entity.User;
 import com.example.mysoftpos_backend.repository.BranchRepository;
 import com.example.mysoftpos_backend.repository.MerchantRepository;
 import com.example.mysoftpos_backend.repository.TerminalRepository;
-import com.example.mysoftpos_backend.repository.UserRepository;
+import com.example.mysoftpos_backend.repository.PosAccountRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -31,19 +31,19 @@ public class ConfigController {
 
     private final MerchantRepository merchantRepo;
     private final TerminalRepository terminalRepo;
-    private final UserRepository userRepo;
+    private final PosAccountRepository userRepo;
     private final BranchRepository branchRepo;
 
     // ==================== Merchants ====================
 
     @GetMapping("/merchants")
-    public ResponseEntity<List<MerchantDto>> getMerchants(@AuthenticationPrincipal User admin) {
+    public ResponseEntity<List<MerchantDto>> getMerchants(@AuthenticationPrincipal PosAccount admin) {
         return ResponseEntity.ok(merchantRepo.findByAdminId(admin.getId()).stream()
                 .map(this::toMerchantDto).collect(Collectors.toList()));
     }
 
     @PostMapping("/merchants")
-    public ResponseEntity<?> createMerchant(@AuthenticationPrincipal User admin,
+    public ResponseEntity<?> createMerchant(@AuthenticationPrincipal PosAccount admin,
                                             @RequestBody Map<String, String> body) {
         if (merchantRepo.existsByMerchantCode(body.get("merchantCode"))) {
             return ResponseEntity.badRequest().body(Map.of("error", "Merchant code already exists"));
@@ -65,7 +65,7 @@ public class ConfigController {
     }
 
     @PutMapping("/merchants/{id}")
-    public ResponseEntity<?> updateMerchant(@AuthenticationPrincipal User admin,
+    public ResponseEntity<?> updateMerchant(@AuthenticationPrincipal PosAccount admin,
                                             @PathVariable Long id,
                                             @RequestBody Map<String, String> body) {
         Merchant m = merchantRepo.findById(id).orElse(null);
@@ -87,7 +87,7 @@ public class ConfigController {
     }
 
     @DeleteMapping("/merchants/{id}")
-    public ResponseEntity<?> deleteMerchant(@AuthenticationPrincipal User admin,
+    public ResponseEntity<?> deleteMerchant(@AuthenticationPrincipal PosAccount admin,
                                             @PathVariable Long id) {
         Merchant merchant = merchantRepo.findById(id).orElse(null);
         if (merchant == null || !Objects.equals(merchant.getAdminId(), admin.getId())) {
@@ -107,7 +107,7 @@ public class ConfigController {
     }
 
     @GetMapping("/merchants/{id}/accounts")
-    public ResponseEntity<?> getMerchantAccounts(@AuthenticationPrincipal User admin,
+    public ResponseEntity<?> getMerchantAccounts(@AuthenticationPrincipal PosAccount admin,
                                                  @PathVariable Long id,
                                                  @RequestParam(name = "branchId", required = false) Long branchId) {
         Merchant merchant = merchantRepo.findById(id).orElse(null);
@@ -115,7 +115,7 @@ public class ConfigController {
             return ResponseEntity.badRequest().body(Map.of("error", "Not found or access denied"));
         }
 
-        List<User> users = branchId != null
+        List<PosAccount> users = branchId != null
                 ? userRepo.findByAdminIdAndMerchantIdAndBranchIdOrderByIdAsc(admin.getId(), id, branchId)
                 : userRepo.findByAdminIdAndMerchantIdOrderByIdAsc(admin.getId(), id);
 
@@ -127,13 +127,13 @@ public class ConfigController {
     // ==================== Terminals ====================
 
     @GetMapping("/terminals")
-    public ResponseEntity<List<TerminalDto>> getTerminals(@AuthenticationPrincipal User admin) {
+    public ResponseEntity<List<TerminalDto>> getTerminals(@AuthenticationPrincipal PosAccount admin) {
         return ResponseEntity.ok(terminalRepo.findByMerchantAdminId(admin.getId()).stream()
                 .map(this::toTerminalDto).collect(Collectors.toList()));
     }
 
     @PostMapping("/terminals")
-    public ResponseEntity<?> createTerminal(@AuthenticationPrincipal User admin,
+    public ResponseEntity<?> createTerminal(@AuthenticationPrincipal PosAccount admin,
                                             @RequestBody Map<String, String> body) {
         if (terminalRepo.existsByTerminalCode(body.get("terminalCode"))) {
             return ResponseEntity.badRequest().body(Map.of("error", "Terminal code already exists"));
@@ -157,7 +157,7 @@ public class ConfigController {
             }
         }
         if (t.getPosAccountId() != null) {
-            User account = userRepo.findById(t.getPosAccountId()).orElse(null);
+            PosAccount account = userRepo.findById(t.getPosAccountId()).orElse(null);
             if (account == null || !Objects.equals(account.getMerchantId(), merchant.getId())) {
                 return ResponseEntity.badRequest().body(Map.of("error", "POS account not found or invalid"));
             }
@@ -167,7 +167,7 @@ public class ConfigController {
     }
 
     @PutMapping("/terminals/{id}")
-    public ResponseEntity<?> updateTerminal(@AuthenticationPrincipal User admin,
+    public ResponseEntity<?> updateTerminal(@AuthenticationPrincipal PosAccount admin,
                                             @PathVariable Long id,
                                             @RequestBody Map<String, String> body) {
         Terminal t = terminalRepo.findById(id).orElse(null);
@@ -189,7 +189,7 @@ public class ConfigController {
         if (body.containsKey("posAccountId")) {
             Long posAccountId = parseLong(body.get("posAccountId"));
             if (posAccountId != null) {
-                User account = userRepo.findById(posAccountId).orElse(null);
+                PosAccount account = userRepo.findById(posAccountId).orElse(null);
                 if (account == null || !Objects.equals(account.getMerchantId(), t.getMerchant().getId())) {
                     return ResponseEntity.badRequest().body(Map.of("error", "POS account not found or invalid"));
                 }
@@ -207,18 +207,20 @@ public class ConfigController {
                 .id(m.getId())
                 .merchantCode(m.getMerchantCode())
                 .merchantName(m.getMerchantName())
+                .fullName(m.getFullName())
+                .phone(m.getPhone())
+                .email(m.getEmail())
+                .dob(m.getDob())
+                .gender(m.getGender())
                 .bankName(m.getBankName())
                 .adminId(m.getAdminId())
                 .ownerUserId(m.getOwnerUserId())
                 .businessType(m.getBusinessType())
                 .storeAddress(m.getStoreAddress())
-                .branchCount(m.getBranchCount())
-                .branchAddresses(m.getBranchAddresses())
-                .accountCount(m.getAccountCount())
                 .build();
     }
 
-    private UserDto toUserDto(User user) {
+    private UserDto toUserDto(PosAccount user) {
         Merchant merchant = user.getMerchantId() != null
                 ? merchantRepo.findById(user.getMerchantId()).orElse(null)
                 : merchantRepo.findByOwnerUserId(user.getId()).orElse(null);
@@ -235,20 +237,18 @@ public class ConfigController {
                 .branchName(branch != null ? branch.getBranchName() : null)
                 .merchantCode(merchant != null ? merchant.getMerchantCode() : null)
                 .role(user.getRole())
-                .fullName(user.getFullName())
+                .fullName(merchant != null ? merchant.getFullName() : null)
                 .username(user.getUsername())
-                .phone(user.getPhone())
-                .email(user.getEmail())
-                .dob(user.getDob())
-                .gender(user.getGender())
+                .phone(merchant != null ? merchant.getPhone() : null)
+                .email(merchant != null ? merchant.getEmail() : null)
+                .dob(merchant != null ? merchant.getDob() : null)
+                .gender(merchant != null ? merchant.getGender() : null)
                 .storeName(merchant != null ? merchant.getMerchantName() : null)
                 .bankName(merchant != null ? merchant.getBankName() : null)
                 .businessType(merchant != null ? merchant.getBusinessType() : null)
                 .storeAddress(merchant != null ? merchant.getStoreAddress() : null)
                 .phoneVerified(user.isPhoneVerified())
                 .terminalId(user.getTerminalId())
-                .serverIp(user.getServerIp())
-                .serverPort(user.getServerPort())
                 .active(user.isActive())
                 .build();
     }

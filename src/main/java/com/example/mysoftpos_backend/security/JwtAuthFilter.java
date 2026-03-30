@@ -16,15 +16,15 @@ import org.springframework.web.filter.OncePerRequestFilter;
 import java.io.IOException;
 import java.util.List;
 
-import com.example.mysoftpos_backend.entity.User;
-import com.example.mysoftpos_backend.repository.UserRepository;
+import com.example.mysoftpos_backend.entity.PosAccount;
+import com.example.mysoftpos_backend.repository.PosAccountRepository;
 
 @Component
 @RequiredArgsConstructor
 public class JwtAuthFilter extends OncePerRequestFilter {
 
     private final JwtTokenProvider jwtProvider;
-    private final UserRepository userRepository;
+    private final PosAccountRepository userRepository;
 
     @Override
     protected void doFilterInternal(HttpServletRequest request,
@@ -34,8 +34,7 @@ public class JwtAuthFilter extends OncePerRequestFilter {
         String token = extractToken(request);
         if (token != null && jwtProvider.validateToken(token)) {
             String subject = jwtProvider.getSubjectFromToken(token);
-            User user = userRepository.findByUsername(subject)
-                    .or(() -> userRepository.findByPhone(subject))
+            PosAccount user = userRepository.findByUsername(subject)
                     .orElse(null);
 
             if (user != null && user.isActive()) {

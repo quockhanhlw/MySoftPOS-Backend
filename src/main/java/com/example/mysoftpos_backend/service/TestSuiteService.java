@@ -103,7 +103,8 @@ public class TestSuiteService {
                 .de22(req.getDe22())
                 .maskedPan(req.getMaskedPan())
                 .expiry(req.getExpiry())
-                .track2(req.getTrack2())
+                .reqFilePath(req.getReqFilePath())
+                .resFilePath(req.getResFilePath())
                 .scheme(req.getScheme())
                 .fieldConfigJson(req.getFieldConfigJson())
                 .build();
@@ -131,8 +132,10 @@ public class TestSuiteService {
             tc.setMaskedPan(req.getMaskedPan());
         if (req.getExpiry() != null)
             tc.setExpiry(req.getExpiry());
-        if (req.getTrack2() != null)
-            tc.setTrack2(req.getTrack2());
+        if (req.getReqFilePath() != null)
+            tc.setReqFilePath(req.getReqFilePath());
+        if (req.getResFilePath() != null)
+            tc.setResFilePath(req.getResFilePath());
         if (req.getScheme() != null)
             tc.setScheme(req.getScheme());
         if (req.getFieldConfigJson() != null)
@@ -190,7 +193,8 @@ public class TestSuiteService {
                             .de22(caseDto.getDe22())
                             .maskedPan(caseDto.getMaskedPan())
                             .expiry(caseDto.getExpiry())
-                            .track2(caseDto.getTrack2())
+                            .reqFilePath(caseDto.getReqFilePath())
+                            .resFilePath(caseDto.getResFilePath())
                             .scheme(caseDto.getScheme())
                             .fieldConfigJson(caseDto.getFieldConfigJson())
                             .build();
@@ -227,7 +231,8 @@ public class TestSuiteService {
                 .de22(tc.getDe22())
                 .maskedPan(tc.getMaskedPan())
                 .expiry(tc.getExpiry())
-                .track2(tc.getTrack2())
+                .reqFilePath(tc.getReqFilePath())
+                .resFilePath(tc.getResFilePath())
                 .scheme(tc.getScheme())
                 .fieldConfigJson(tc.getFieldConfigJson())
                 .createdAt(tc.getCreatedAt() != null ? tc.getCreatedAt().toString() : null)

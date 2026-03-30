@@ -5,7 +5,7 @@ import lombok.*;
 import java.time.LocalDateTime;
 
 @Entity
-@Table(name = "transactions_summary")
+@Table(name = "transactions")
 @Getter
 @Setter
 @NoArgsConstructor
@@ -33,8 +33,11 @@ public class TransactionSummary {
     @Column(length = 20)
     private String cardScheme; // Napas, Visa, MC
 
-    @Column(length = 8)
-    private String terminalCode;
+    @Column(name = "terminal_id")
+    private Long terminalId;
+
+    @Column(name = "card_id")
+    private Long cardId;
 
     @Lob
     @Column(name = "request_hex", columnDefinition = "TEXT")
@@ -53,17 +56,15 @@ public class TransactionSummary {
     @Column(length = 12)
     private String rrn;
 
-    @Column(name = "owner_username", length = 64)
-    private String ownerUsername;
 
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "user_id")
-    private User user;
+    @JoinColumn(name = "pos_account_id")
+    private PosAccount posAccount;
 
     @Column(length = 50)
     private String deviceId;
 
-    @Column
+    @Column(name = "txn_timestamp")
     private LocalDateTime txnTimestamp;
 
     @Column(nullable = false)

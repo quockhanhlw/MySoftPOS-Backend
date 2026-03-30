@@ -4,6 +4,18 @@
 
 Rename physical table `users` to `pos_accounts` with compatibility preserved for older app/backend versions.
 
+## Legacy Sunset Policy
+
+- Canonical API endpoint: `/api/pos-accounts`.
+- `/api/users` is compatibility-only and marked deprecated in current release.
+- Target removal window: **within 1-2 upcoming releases** (hard stop at `R+2`).
+- Operational gate: remove only after `/api/users` traffic is effectively zero for one full release cycle.
+
+## Endpoint Documentation Policy
+
+- New API docs and examples must use canonical naming (`pos-account`, `/api/pos-accounts`).
+- Legacy `/api/users` can be mentioned only with explicit `deprecated compatibility` label.
+
 ## Proposed Sequence
 
 ### V8 - Expand (no behavior change)
@@ -33,6 +45,27 @@ Rename physical table `users` to `pos_accounts` with compatibility preserved for
 - Remove compatibility view `users`
 - Remove `users_legacy` table
 - Drop any temporary objects
+
+## Phase 2 - transactions.user_id -> transactions.pos_account_id
+
+### V16 - Expand + Backfill
+
+- Add nullable `transactions.pos_account_id`
+- Backfill from `transactions.user_id`
+- Add index + FK to `pos_accounts(id)`
+- Add dual-write triggers to sync `user_id` <-> `pos_account_id`
+
+### V17 - Cutover (compatibility retained)
+
+- Switch backend mapping to `transactions.pos_account_id`
+- Final reconciliation/backfill for mismatched rows
+- Keep compatibility triggers during stabilization window
+
+### V18 - Cleanup (planned)
+
+- Remove compatibility triggers
+- Drop legacy `transactions.user_id`
+- Rename legacy routes/fields only after compatibility window closes
 
 ## Notes
 

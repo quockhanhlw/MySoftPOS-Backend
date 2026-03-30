@@ -42,8 +42,11 @@ public class TestCase {
     @Column(length = 10)
     private String expiry;
 
-    @Column(length = 50)
-    private String track2;
+    @Column(name = "req_file_path", length = 500)
+    private String reqFilePath;
+
+    @Column(name = "res_file_path", length = 500)
+    private String resFilePath;
 
     @Column(length = 30)
     private String scheme; // Napas, Visa, etc.
@@ -52,7 +55,7 @@ public class TestCase {
     @Column(columnDefinition = "TEXT")
     private String fieldConfigJson;
 
-    @Column(nullable = false, updatable = false)
+    @Column(name = "created_at", nullable = false, updatable = false)
     @Builder.Default
     private LocalDateTime createdAt = LocalDateTime.now();
 }

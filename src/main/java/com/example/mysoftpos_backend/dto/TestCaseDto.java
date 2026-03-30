@@ -1,5 +1,6 @@
 package com.example.mysoftpos_backend.dto;
 
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import lombok.*;
 
 @Getter
@@ -7,6 +8,7 @@ import lombok.*;
 @NoArgsConstructor
 @AllArgsConstructor
 @Builder
+@JsonIgnoreProperties(ignoreUnknown = true)
 public class TestCaseDto {
     private Long id;
     private Long suiteId;
@@ -17,7 +19,8 @@ public class TestCaseDto {
     private String de22;
     private String maskedPan;
     private String expiry;
-    private String track2;
+    private String reqFilePath;
+    private String resFilePath;
     private String scheme;
     private String fieldConfigJson;
     private String createdAt;

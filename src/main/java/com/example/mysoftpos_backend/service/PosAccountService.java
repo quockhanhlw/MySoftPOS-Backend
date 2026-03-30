@@ -2,7 +2,6 @@ package com.example.mysoftpos_backend.service;
 
 import com.example.mysoftpos_backend.dto.CreatePosAccountRequest;
 import com.example.mysoftpos_backend.dto.PosAccountDto;
-import com.example.mysoftpos_backend.dto.UserDto;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
@@ -12,30 +11,26 @@ import java.util.List;
 @RequiredArgsConstructor
 public class PosAccountService {
 
-    private final UserService userService;
+    private final PosAccountServiceCore posAccountServiceCore;
 
     public List<PosAccountDto> getPosAccountsByAdmin(Long adminId) {
-        return userService.getPosAccountsByAdmin(adminId).stream()
-                .map(PosAccountDto::fromUserDto)
-                .toList();
+        return posAccountServiceCore.getPosAccountsByAdmin(adminId);
     }
 
     public PosAccountDto createPosAccount(Long adminId, CreatePosAccountRequest req) {
-        UserDto userDto = userService.createPosAccount(adminId, req);
-        return PosAccountDto.fromUserDto(userDto);
+        return posAccountServiceCore.createPosAccount(adminId, req);
     }
 
     public PosAccountDto updatePosAccount(Long adminId, Long accountId, CreatePosAccountRequest req) {
-        UserDto userDto = userService.updatePosAccount(adminId, accountId, req);
-        return PosAccountDto.fromUserDto(userDto);
+        return posAccountServiceCore.updatePosAccount(adminId, accountId, req);
     }
 
     public void deletePosAccount(Long adminId, Long accountId) {
-        userService.deletePosAccount(adminId, accountId);
+        posAccountServiceCore.deletePosAccount(adminId, accountId);
     }
 
     public void resetPosAccountPassword(Long adminId, Long accountId, String newPassword) {
-        userService.resetPosAccountPassword(adminId, accountId, newPassword);
+        posAccountServiceCore.resetPosAccountPassword(adminId, accountId, newPassword);
     }
 }
 

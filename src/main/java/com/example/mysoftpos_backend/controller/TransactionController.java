@@ -2,7 +2,7 @@ package com.example.mysoftpos_backend.controller;
 
 import com.example.mysoftpos_backend.dto.TransactionSummaryDto;
 import com.example.mysoftpos_backend.dto.TransactionSyncRequest;
-import com.example.mysoftpos_backend.entity.User;
+import com.example.mysoftpos_backend.entity.PosAccount;
 import com.example.mysoftpos_backend.service.TransactionService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
@@ -19,11 +19,11 @@ public class TransactionController {
 
     private final TransactionService txnService;
 
-    /** Device pushes batch of transactions (User or Admin) */
+    /** Device pushes batch of transactions (POS account or admin) */
     @PostMapping("/sync")
-    public ResponseEntity<?> syncTransactions(@AuthenticationPrincipal User user,
+    public ResponseEntity<?> syncTransactions(@AuthenticationPrincipal PosAccount posAccount,
                                               @RequestBody TransactionSyncRequest req) {
-        int synced = txnService.syncTransactions(user, req);
+        int synced = txnService.syncTransactions(posAccount, req);
         return ResponseEntity.ok(Map.of("syncedCount", synced));
     }
 
@@ -39,9 +39,15 @@ public class TransactionController {
         return ResponseEntity.ok(txnService.getByTerminal(code));
     }
 
-    /** Admin views by user */
+    /** Admin views by POS account (canonical route). */
+    @GetMapping("/pos-accounts/{posAccountId}")
+    public ResponseEntity<List<TransactionSummaryDto>> getByPosAccount(@PathVariable Long posAccountId) {
+        return ResponseEntity.ok(txnService.getByPosAccount(posAccountId));
+    }
+
+    /** Legacy compatibility route; use /api/transactions/pos-accounts/{posAccountId}. */
     @GetMapping("/user/{userId}")
     public ResponseEntity<List<TransactionSummaryDto>> getByUser(@PathVariable Long userId) {
-        return ResponseEntity.ok(txnService.getByUser(userId));
+        return ResponseEntity.ok(txnService.getByPosAccount(userId));
     }
 }

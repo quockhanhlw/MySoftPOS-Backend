@@ -2,14 +2,15 @@ package com.example.mysoftpos_backend.controller;
 
 import com.example.mysoftpos_backend.dto.BranchDto;
 import com.example.mysoftpos_backend.dto.CreateBranchRequest;
+import com.example.mysoftpos_backend.dto.PosAccountDto;
 import com.example.mysoftpos_backend.dto.UserDto;
 import com.example.mysoftpos_backend.entity.Branch;
 import com.example.mysoftpos_backend.entity.Merchant;
-import com.example.mysoftpos_backend.entity.User;
+import com.example.mysoftpos_backend.entity.PosAccount;
 import com.example.mysoftpos_backend.repository.BranchRepository;
 import com.example.mysoftpos_backend.repository.MerchantRepository;
-import com.example.mysoftpos_backend.repository.UserRepository;
-import com.example.mysoftpos_backend.service.UserService;
+import com.example.mysoftpos_backend.repository.PosAccountRepository;
+import com.example.mysoftpos_backend.service.PosAccountServiceCore;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
@@ -36,11 +37,11 @@ public class BranchController {
 
     private final MerchantRepository merchantRepo;
     private final BranchRepository branchRepo;
-    private final UserRepository userRepo;
-    private final UserService userService;
+    private final PosAccountRepository userRepo;
+    private final PosAccountServiceCore posAccountServiceCore;
 
     @GetMapping
-    public ResponseEntity<?> getBranches(@AuthenticationPrincipal User admin,
+    public ResponseEntity<?> getBranches(@AuthenticationPrincipal PosAccount admin,
                                          @PathVariable Long merchantId) {
         Merchant merchant = merchantRepo.findById(merchantId).orElse(null);
         if (merchant == null || !Objects.equals(merchant.getAdminId(), admin.getId())) {
@@ -55,7 +56,7 @@ public class BranchController {
     }
 
     @PostMapping
-    public ResponseEntity<?> createBranch(@AuthenticationPrincipal User admin,
+    public ResponseEntity<?> createBranch(@AuthenticationPrincipal PosAccount admin,
                                           @PathVariable Long merchantId,
                                           @Valid @RequestBody CreateBranchRequest req) {
         Merchant merchant = merchantRepo.findById(merchantId).orElse(null);
@@ -83,7 +84,7 @@ public class BranchController {
     }
 
     @PutMapping("/{branchId}")
-    public ResponseEntity<?> updateBranch(@AuthenticationPrincipal User admin,
+    public ResponseEntity<?> updateBranch(@AuthenticationPrincipal PosAccount admin,
                                           @PathVariable Long merchantId,
                                           @PathVariable Long branchId,
                                           @Valid @RequestBody CreateBranchRequest req) {
@@ -113,7 +114,7 @@ public class BranchController {
     }
 
     @GetMapping("/{branchId}/accounts")
-    public ResponseEntity<?> getBranchAccounts(@AuthenticationPrincipal User admin,
+    public ResponseEntity<?> getBranchAccounts(@AuthenticationPrincipal PosAccount admin,
                                                @PathVariable Long merchantId,
                                                @PathVariable Long branchId) {
         Merchant merchant = merchantRepo.findById(merchantId).orElse(null);
@@ -129,9 +130,39 @@ public class BranchController {
         List<UserDto> accounts = userRepo
                 .findByAdminIdAndMerchantIdAndBranchIdOrderByIdAsc(admin.getId(), merchantId, branchId)
                 .stream()
-                .map(userService::toDto)
+                .map(posAccountServiceCore::toPosAccountDto)
+                .map(this::toUserDto)
                 .toList();
         return ResponseEntity.ok(accounts);
+    }
+
+    private UserDto toUserDto(PosAccountDto dto) {
+        if (dto == null) {
+            return null;
+        }
+        return UserDto.builder()
+                .id(dto.getId())
+                .merchantId(dto.getMerchantId())
+                .branchId(dto.getBranchId())
+                .branchCode(dto.getBranchCode())
+                .branchName(dto.getBranchName())
+                .merchantCode(dto.getMerchantCode())
+                .role(dto.getRole())
+                .fullName(dto.getFullName())
+                .username(dto.getUsername())
+                .phone(dto.getPhone())
+                .email(dto.getEmail())
+                .dob(dto.getDob())
+                .gender(dto.getGender())
+                .storeName(dto.getStoreName())
+                .bankName(dto.getBankName())
+                .businessType(dto.getBusinessType())
+                .storeAddress(dto.getStoreAddress())
+                .phoneVerified(dto.getPhoneVerified())
+                .terminalId(dto.getTerminalId())
+                .active(dto.isActive())
+                .online(dto.isOnline())
+                .build();
     }
 
     private Branch ensureMainBranch(Merchant merchant) {
@@ -150,9 +181,7 @@ public class BranchController {
     }
 
     private void recalculateMerchantBranchCount(Merchant merchant) {
-        int count = branchRepo.findByMerchantIdOrderByIdAsc(merchant.getId()).size();
-        merchant.setBranchCount(count);
-        merchantRepo.save(merchant);
+        // branch count is derived dynamically; no denormalized counter persisted.
     }
 
     private BranchDto toBranchDto(Branch branch) {

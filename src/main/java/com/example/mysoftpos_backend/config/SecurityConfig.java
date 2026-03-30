@@ -1,7 +1,7 @@
 package com.example.mysoftpos_backend.config;
 
-import com.example.mysoftpos_backend.entity.User;
-import com.example.mysoftpos_backend.repository.UserRepository;
+import com.example.mysoftpos_backend.entity.PosAccount;
+import com.example.mysoftpos_backend.repository.PosAccountRepository;
 import com.example.mysoftpos_backend.security.JwtAuthFilter;
 import lombok.RequiredArgsConstructor;
 import org.springframework.context.annotation.Bean;
@@ -26,7 +26,7 @@ import java.util.List;
 public class SecurityConfig {
 
     private final JwtAuthFilter jwtAuthFilter;
-    private final UserRepository userRepository;
+    private final PosAccountRepository userRepository;
 
     @Bean
     public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
@@ -44,8 +44,8 @@ public class SecurityConfig {
                 .requestMatchers("/api/auth/forgot-password/**").permitAll()
                 .requestMatchers("/swagger-ui/**", "/api-docs/**", "/v3/api-docs/**").permitAll()
                 .requestMatchers("/h2-console/**").permitAll()
-                // Admin-only endpoints
-                .requestMatchers("/api/users/**").hasRole("ADMIN")
+                // Admin-only endpoints (canonical + legacy compatibility)
+                .requestMatchers("/api/users/**").hasRole("ADMIN") // deprecated compatibility route
                 .requestMatchers("/api/pos-accounts/**").hasRole("ADMIN")
                 .requestMatchers("/api/merchants/**").hasRole("ADMIN")
                 .requestMatchers("/api/terminals/**").hasRole("ADMIN")
@@ -78,12 +78,11 @@ public class SecurityConfig {
     @Bean
     public UserDetailsService userDetailsService() {
         return username -> {
-            User user = userRepository.findByPhone(username)
-                    .or(() -> userRepository.findByEmail(username))
-                    .orElseThrow(() -> new UsernameNotFoundException("User not found"));
+            PosAccount user = userRepository.findByUsername(username)
+                    .orElseThrow(() -> new UsernameNotFoundException("Pos account not found"));
 
             return org.springframework.security.core.userdetails.User
-                    .withUsername(user.getPhone())
+                    .withUsername(user.getUsername())
                     .password(user.getPasswordHash())
                     .authorities(List.of(new SimpleGrantedAuthority("ROLE_" + user.getRole())))
                     .disabled(!user.isActive())

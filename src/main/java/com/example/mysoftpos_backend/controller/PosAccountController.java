@@ -2,7 +2,7 @@ package com.example.mysoftpos_backend.controller;
 
 import com.example.mysoftpos_backend.dto.CreatePosAccountRequest;
 import com.example.mysoftpos_backend.dto.PosAccountDto;
-import com.example.mysoftpos_backend.entity.User;
+import com.example.mysoftpos_backend.entity.PosAccount;
 import com.example.mysoftpos_backend.service.PosAccountService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -22,12 +22,12 @@ public class PosAccountController {
     private final PosAccountService posAccountService;
 
     @GetMapping
-    public ResponseEntity<List<PosAccountDto>> getPosAccounts(@AuthenticationPrincipal User admin) {
+    public ResponseEntity<List<PosAccountDto>> getPosAccounts(@AuthenticationPrincipal PosAccount admin) {
         return ResponseEntity.ok(posAccountService.getPosAccountsByAdmin(admin.getId()));
     }
 
     @PostMapping
-    public ResponseEntity<?> createPosAccount(@AuthenticationPrincipal User admin,
+    public ResponseEntity<?> createPosAccount(@AuthenticationPrincipal PosAccount admin,
                                                @Valid @RequestBody CreatePosAccountRequest req) {
         try {
             return ResponseEntity.status(HttpStatus.CREATED)
@@ -38,7 +38,7 @@ public class PosAccountController {
     }
 
     @PutMapping("/{id}")
-    public ResponseEntity<?> updatePosAccount(@AuthenticationPrincipal User admin,
+    public ResponseEntity<?> updatePosAccount(@AuthenticationPrincipal PosAccount admin,
                                               @PathVariable Long id,
                                                @Valid @RequestBody CreatePosAccountRequest req) {
         try {
@@ -49,7 +49,7 @@ public class PosAccountController {
     }
 
     @DeleteMapping("/{id}")
-    public ResponseEntity<?> deletePosAccount(@AuthenticationPrincipal User admin,
+    public ResponseEntity<?> deletePosAccount(@AuthenticationPrincipal PosAccount admin,
                                               @PathVariable Long id) {
         try {
             posAccountService.deletePosAccount(admin.getId(), id);
@@ -60,7 +60,7 @@ public class PosAccountController {
     }
 
     @PutMapping("/{id}/reset-password")
-    public ResponseEntity<?> resetPosAccountPassword(@AuthenticationPrincipal User admin,
+    public ResponseEntity<?> resetPosAccountPassword(@AuthenticationPrincipal PosAccount admin,
                                                      @PathVariable Long id,
                                                      @RequestBody Map<String, String> body) {
         try {

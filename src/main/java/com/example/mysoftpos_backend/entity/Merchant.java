@@ -15,8 +15,24 @@ public class Merchant {
     @Column(nullable = false, unique = true, length = 15)
     private String merchantCode; // DE 42
 
-    @Column(length = 100)
+    @Column(name = "merchant_name", length = 100)
     private String merchantName; // DE 43
+
+    // Merchant profile/contact info from registration form.
+    @Column(name = "full_name", length = 200)
+    private String fullName;
+
+    @Column(name = "phone", length = 20, unique = true)
+    private String phone;
+
+    @Column(name = "email", length = 100, unique = true)
+    private String email;
+
+    @Column(name = "dob", length = 20)
+    private String dob;
+
+    @Column(name = "gender", length = 20)
+    private String gender;
 
     @Column(name = "bank_name", length = 22)
     private String bankName;
@@ -35,12 +51,4 @@ public class Merchant {
     @Column(length = 255)
     private String storeAddress;
 
-    @Column
-    private Integer branchCount;
-
-    @Column(length = 1000)
-    private String branchAddresses;
-
-    @Column
-    private Integer accountCount;
 }
