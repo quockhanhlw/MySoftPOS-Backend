@@ -1,6 +1,7 @@
 package com.example.mysoftpos_backend.service;
 
 import com.example.mysoftpos_backend.dto.CreatePosAccountRequest;
+import com.example.mysoftpos_backend.dto.PosAccountConnectionRequest;
 import com.example.mysoftpos_backend.dto.PosAccountDto;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -23,6 +24,10 @@ public class PosAccountService {
 
     public PosAccountDto updatePosAccount(Long adminId, Long accountId, CreatePosAccountRequest req) {
         return posAccountServiceCore.updatePosAccount(adminId, accountId, req);
+    }
+
+    public PosAccountDto updatePosAccountConnection(Long adminId, Long accountId, PosAccountConnectionRequest req) {
+        return posAccountServiceCore.updatePosAccountConnection(adminId, accountId, req);
     }
 
     public void deletePosAccount(Long adminId, Long accountId) {

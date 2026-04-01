@@ -4,9 +4,11 @@ import com.example.mysoftpos_backend.dto.*;
 import com.example.mysoftpos_backend.entity.Branch;
 import com.example.mysoftpos_backend.entity.Merchant;
 import com.example.mysoftpos_backend.entity.PosAccount;
+import com.example.mysoftpos_backend.entity.Terminal;
 import com.example.mysoftpos_backend.repository.BranchRepository;
 import com.example.mysoftpos_backend.repository.MerchantRepository;
 import com.example.mysoftpos_backend.repository.PosAccountRepository;
+import com.example.mysoftpos_backend.repository.TerminalRepository;
 import com.example.mysoftpos_backend.security.JwtTokenProvider;
 import lombok.RequiredArgsConstructor;
 import org.slf4j.Logger;
@@ -45,6 +47,7 @@ public class AuthService {
     private final PosAccountRepository userRepo;
     private final MerchantRepository merchantRepo;
     private final BranchRepository branchRepo;
+    private final TerminalRepository terminalRepo;
     private final PasswordEncoder passwordEncoder;
     private final JwtTokenProvider jwtProvider;
     private final JavaMailSender mailSender;
@@ -268,6 +271,7 @@ public class AuthService {
                 ? merchantRepo.findById(user.getMerchantId()).orElse(null)
                 : merchantRepo.findByOwnerUserId(user.getId()).orElse(null);
         Branch branch = user.getBranchId() != null ? branchRepo.findById(user.getBranchId()).orElse(null) : null;
+        Terminal terminal = resolveTerminalForUser(user);
 
         PosAccountDto dto = PosAccountDto.builder()
                 .id(user.getId())
@@ -288,7 +292,11 @@ public class AuthService {
                 .businessType(merchant != null ? merchant.getBusinessType() : null)
                 .storeAddress(merchant != null ? merchant.getStoreAddress() : null)
                 .phoneVerified(user.isPhoneVerified())
-                .terminalId(user.getTerminalId())
+                .terminalId(user.getTerminalId() != null && !user.getTerminalId().isBlank()
+                        ? user.getTerminalId()
+                        : (terminal != null ? terminal.getTerminalCode() : null))
+                .serverIp(terminal != null ? terminal.getServerIp() : null)
+                .serverPort(terminal != null ? terminal.getServerPort() : null)
                 .active(user.isActive())
                 .build();
 
@@ -298,6 +306,30 @@ public class AuthService {
                 .posAccount(dto)
                 .user(dto)
                 .build();
+    }
+
+    private Terminal resolveTerminalForUser(PosAccount user) {
+        if (user == null || user.getId() == null) {
+            return null;
+        }
+        Terminal byAccount = terminalRepo.findFirstByPosAccountId(user.getId()).orElse(null);
+        if (hasUsableHost(byAccount)) {
+            return byAccount;
+        }
+        String terminalId = user.getTerminalId();
+        if (terminalId == null || terminalId.isBlank()) {
+            return null;
+        }
+        Terminal byTerminalCode = terminalRepo.findByTerminalCode(terminalId.trim().toUpperCase(Locale.ROOT)).orElse(null);
+        return hasUsableHost(byTerminalCode) ? byTerminalCode : null;
+    }
+
+    private boolean hasUsableHost(Terminal terminal) {
+        return terminal != null
+                && terminal.getServerIp() != null
+                && !terminal.getServerIp().trim().isEmpty()
+                && terminal.getServerPort() != null
+                && terminal.getServerPort() > 0;
     }
 
     private Long resolveAssignedAdminId() {

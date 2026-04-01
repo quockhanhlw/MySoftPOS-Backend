@@ -9,6 +9,7 @@ public interface TerminalRepository extends JpaRepository<Terminal, Long> {
     List<Terminal> findByMerchantId(Long merchantId);
     List<Terminal> findByMerchantAdminId(Long adminId);
     long countByMerchantId(Long merchantId);
+    Optional<Terminal> findFirstByPosAccountId(Long posAccountId);
     Optional<Terminal> findByTerminalCode(String terminalCode);
     boolean existsByTerminalCode(String terminalCode);
 }

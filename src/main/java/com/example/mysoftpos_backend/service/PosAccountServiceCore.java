@@ -1,13 +1,16 @@
 package com.example.mysoftpos_backend.service;
 
 import com.example.mysoftpos_backend.dto.CreatePosAccountRequest;
+import com.example.mysoftpos_backend.dto.PosAccountConnectionRequest;
 import com.example.mysoftpos_backend.dto.PosAccountDto;
 import com.example.mysoftpos_backend.entity.Branch;
 import com.example.mysoftpos_backend.entity.Merchant;
 import com.example.mysoftpos_backend.entity.PosAccount;
+import com.example.mysoftpos_backend.entity.Terminal;
 import com.example.mysoftpos_backend.repository.BranchRepository;
 import com.example.mysoftpos_backend.repository.MerchantRepository;
 import com.example.mysoftpos_backend.repository.PosAccountRepository;
+import com.example.mysoftpos_backend.repository.TerminalRepository;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
@@ -26,15 +29,18 @@ public class PosAccountServiceCore {
     private final PosAccountRepository posAccountRepo;
     private final MerchantRepository merchantRepo;
     private final BranchRepository branchRepo;
+    private final TerminalRepository terminalRepo;
     private final PasswordEncoder passwordEncoder;
 
     public PosAccountServiceCore(@Qualifier("posAccountRepository") PosAccountRepository posAccountRepo,
                                  MerchantRepository merchantRepo,
                                  BranchRepository branchRepo,
+                                 TerminalRepository terminalRepo,
                                  PasswordEncoder passwordEncoder) {
         this.posAccountRepo = posAccountRepo;
         this.merchantRepo = merchantRepo;
         this.branchRepo = branchRepo;
+        this.terminalRepo = terminalRepo;
         this.passwordEncoder = passwordEncoder;
     }
 
@@ -107,6 +113,8 @@ public class PosAccountServiceCore {
             posAccount = posAccountRepo.save(posAccount);
         }
 
+        syncTerminalMapping(posAccount, req);
+
         return toPosAccountDto(posAccount);
     }
 
@@ -152,55 +160,31 @@ public class PosAccountServiceCore {
             posAccount.setPasswordHash(passwordEncoder.encode(req.getPassword()));
         }
         posAccount = posAccountRepo.save(posAccount);
+        syncTerminalMapping(posAccount, req);
+        return toPosAccountDto(posAccount);
+    }
 
-        Merchant merchant = posAccount.getMerchantId() != null
-                ? merchantRepo.findById(posAccount.getMerchantId()).orElse(null)
-                : merchantRepo.findByOwnerUserId(posAccount.getId()).orElse(null);
-        if (merchant != null) {
-            boolean updateMerchantProfile = merchant.getOwnerUserId() != null
-                    && merchant.getOwnerUserId().equals(posAccount.getId());
-
-            if (updateMerchantProfile && req.getFullName() != null) {
-                merchant.setFullName(normalizeText(req.getFullName()));
-            }
-            if (updateMerchantProfile && req.getPhone() != null) {
-                String normalizedPhone = normalizePhone(req.getPhone());
-                if (normalizedPhone != null
-                        && !normalizedPhone.equals(merchant.getPhone())
-                        && merchantRepo.existsByPhone(normalizedPhone)) {
-                    throw new RuntimeException("Phone number already registered");
-                }
-                merchant.setPhone(normalizedPhone);
-            }
-            if (updateMerchantProfile && req.getEmail() != null) {
-                String normalizedEmail = normalizeEmail(req.getEmail());
-                if (normalizedEmail != null
-                        && !normalizedEmail.equals(normalizeEmail(merchant.getEmail()))
-                        && merchantRepo.existsByEmail(normalizedEmail)) {
-                    throw new RuntimeException("Email already registered");
-                }
-                merchant.setEmail(normalizedEmail);
-            }
-            if (updateMerchantProfile && req.getDob() != null) {
-                merchant.setDob(normalizeText(req.getDob()));
-            }
-            if (updateMerchantProfile && req.getGender() != null) {
-                merchant.setGender(normalizeText(req.getGender()));
-            }
-            if (req.getStoreName() != null) {
-                merchant.setMerchantName(normalizeText(req.getStoreName()));
-            }
-            if (req.getBankName() != null) {
-                merchant.setBankName(normalizeBankName(req.getBankName()));
-            }
-            if (req.getBusinessType() != null) {
-                merchant.setBusinessType(normalizeBusinessType(req.getBusinessType()));
-            }
-            if (req.getStoreAddress() != null) {
-                merchant.setStoreAddress(normalizeText(req.getStoreAddress()));
-            }
-            merchantRepo.save(merchant);
+    public PosAccountDto updatePosAccountConnection(Long adminId, Long accountId, PosAccountConnectionRequest req) {
+        PosAccount posAccount = posAccountRepo.findById(accountId)
+                .orElseThrow(() -> new RuntimeException("Pos account not found"));
+        if (!adminId.equals(posAccount.getAdminId())) {
+            throw new RuntimeException("Access denied");
         }
+
+        String normalizedTid = normalizeTerminalId(req != null ? req.getTerminalId() : null);
+        validateTerminalId(normalizedTid);
+        if (normalizedTid != null && !normalizedTid.isEmpty()) {
+            posAccount.setTerminalId(normalizedTid);
+            posAccount = posAccountRepo.save(posAccount);
+        }
+
+        CreatePosAccountRequest syncReq = new CreatePosAccountRequest();
+        syncReq.setMerchantId(posAccount.getMerchantId());
+        syncReq.setBranchId(posAccount.getBranchId());
+        syncReq.setTerminalId(normalizedTid != null && !normalizedTid.isEmpty() ? normalizedTid : posAccount.getTerminalId());
+        syncReq.setServerIp(req != null ? req.getServerIp() : null);
+        syncReq.setServerPort(req != null ? req.getServerPort() : null);
+        syncTerminalMapping(posAccount, syncReq);
         return toPosAccountDto(posAccount);
     }
 
@@ -237,6 +221,13 @@ public class PosAccountServiceCore {
                 : (merchant != null ? merchant.getId() : null);
         boolean isOnline = posAccount.getLastActiveAt() != null
                 && posAccount.getLastActiveAt().isAfter(LocalDateTime.now().minusMinutes(5));
+        Terminal terminal = terminalRepo.findFirstByPosAccountId(posAccount.getId()).orElse(null);
+        if (terminal == null) {
+            String accountTid = normalizeTerminalId(posAccount.getTerminalId());
+            if (accountTid != null && !accountTid.isEmpty()) {
+                terminal = terminalRepo.findByTerminalCode(accountTid).orElse(null);
+            }
+        }
 
         return PosAccountDto.builder()
                 .id(posAccount.getId())
@@ -258,6 +249,8 @@ public class PosAccountServiceCore {
                 .storeAddress(merchant != null ? merchant.getStoreAddress() : null)
                 .phoneVerified(posAccount.isPhoneVerified())
                 .terminalId(posAccount.getTerminalId())
+                .serverIp(terminal != null ? terminal.getServerIp() : null)
+                .serverPort(terminal != null ? terminal.getServerPort() : null)
                 .active(posAccount.isActive())
                 .online(isOnline)
                 .build();
@@ -370,6 +363,86 @@ public class PosAccountServiceCore {
         }
         String normalized = value.trim();
         return normalized.isEmpty() ? null : normalized;
+    }
+
+    private void syncTerminalMapping(PosAccount posAccount, CreatePosAccountRequest req) {
+        if (posAccount == null || req == null) {
+            return;
+        }
+
+        String targetTid = normalizeTerminalId(req.getTerminalId());
+        String accountTid = normalizeTerminalId(posAccount.getTerminalId());
+        String effectiveTid = targetTid != null && !targetTid.isEmpty() ? targetTid : accountTid;
+        String targetIp = req.getServerIp() != null ? normalizeText(req.getServerIp()) : null;
+        Integer targetPort = req.getServerPort();
+        boolean hostUpdateRequested = req.getServerIp() != null || req.getServerPort() != null;
+
+        Terminal terminal = terminalRepo.findFirstByPosAccountId(posAccount.getId()).orElse(null);
+        if (terminal == null) {
+            if (accountTid != null && !accountTid.isEmpty()) {
+                terminal = terminalRepo.findByTerminalCode(accountTid).orElse(null);
+            }
+        }
+        if (terminal == null && effectiveTid != null && !effectiveTid.isEmpty()) {
+            terminal = terminalRepo.findByTerminalCode(effectiveTid).orElse(null);
+        }
+
+        if (terminal == null && (effectiveTid == null || effectiveTid.isEmpty())) {
+            if (hostUpdateRequested) {
+                throw new RuntimeException("Terminal ID is required to save server IP/Port");
+            }
+            return;
+        }
+
+        Merchant merchant = null;
+        if (posAccount.getMerchantId() != null) {
+            merchant = merchantRepo.findById(posAccount.getMerchantId()).orElse(null);
+        }
+        if (merchant == null && req.getMerchantId() != null) {
+            merchant = merchantRepo.findById(req.getMerchantId()).orElse(null);
+        }
+        if (merchant == null && posAccount.getId() != null) {
+            merchant = merchantRepo.findByOwnerUserId(posAccount.getId()).orElse(null);
+        }
+        if (merchant == null && terminal != null) {
+            merchant = terminal.getMerchant();
+        }
+        if (merchant == null) {
+            if (hostUpdateRequested) {
+                throw new RuntimeException("Merchant not found for terminal mapping");
+            }
+            return;
+        }
+
+        if (terminal == null) {
+            terminal = Terminal.builder()
+                    .terminalCode(effectiveTid)
+                    .merchant(merchant)
+                    .branchId(posAccount.getBranchId())
+                    .posAccountId(posAccount.getId())
+                    .build();
+        }
+
+        if (effectiveTid != null && !effectiveTid.isEmpty()) {
+            Terminal existingByTid = terminalRepo.findByTerminalCode(effectiveTid).orElse(null);
+            if (existingByTid != null && (terminal.getId() == null || !existingByTid.getId().equals(terminal.getId()))) {
+                throw new RuntimeException("Terminal code already exists");
+            }
+            terminal.setTerminalCode(effectiveTid);
+        }
+
+        terminal.setMerchant(merchant);
+        terminal.setBranchId(posAccount.getBranchId());
+        terminal.setPosAccountId(posAccount.getId());
+
+        if (req.getServerIp() != null) {
+            terminal.setServerIp(targetIp);
+        }
+        if (req.getServerPort() != null || req.getServerIp() != null) {
+            terminal.setServerPort(targetPort);
+        }
+
+        terminalRepo.save(terminal);
     }
 }
 

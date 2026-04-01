@@ -31,6 +31,8 @@ public class PosAccountDto {
     private String storeAddress;
     private Boolean phoneVerified;
     private String terminalId;
+    private String serverIp;
+    private Integer serverPort;
     private boolean active;
     private boolean online;
 

@@ -1,6 +1,7 @@
 package com.example.mysoftpos_backend.controller;
 
 import com.example.mysoftpos_backend.dto.CreatePosAccountRequest;
+import com.example.mysoftpos_backend.dto.PosAccountConnectionRequest;
 import com.example.mysoftpos_backend.dto.PosAccountDto;
 import com.example.mysoftpos_backend.entity.PosAccount;
 import com.example.mysoftpos_backend.service.PosAccountService;
@@ -43,6 +44,17 @@ public class PosAccountController {
                                                @Valid @RequestBody CreatePosAccountRequest req) {
         try {
             return ResponseEntity.ok(posAccountService.updatePosAccount(admin.getId(), id, req));
+        } catch (RuntimeException e) {
+            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
+        }
+    }
+
+    @PutMapping("/{id}/connection")
+    public ResponseEntity<?> updatePosAccountConnection(@AuthenticationPrincipal PosAccount admin,
+                                                        @PathVariable Long id,
+                                                        @RequestBody PosAccountConnectionRequest req) {
+        try {
+            return ResponseEntity.ok(posAccountService.updatePosAccountConnection(admin.getId(), id, req));
         } catch (RuntimeException e) {
             return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
         }

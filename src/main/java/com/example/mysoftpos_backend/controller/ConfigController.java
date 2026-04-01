@@ -228,6 +228,11 @@ public class ConfigController {
                 ? user.getMerchantId()
                 : (merchant != null ? merchant.getId() : null);
         Branch branch = user.getBranchId() != null ? branchRepo.findById(user.getBranchId()).orElse(null) : null;
+        Terminal terminal = terminalRepo.findFirstByPosAccountId(user.getId()).orElse(null);
+        if (terminal == null && user.getTerminalId() != null && !user.getTerminalId().isBlank()) {
+            terminal = terminalRepo.findByTerminalCode(user.getTerminalId().trim().toUpperCase(java.util.Locale.ROOT))
+                    .orElse(null);
+        }
 
         return PosAccountDto.builder()
                 .id(user.getId())
@@ -249,6 +254,8 @@ public class ConfigController {
                 .storeAddress(merchant != null ? merchant.getStoreAddress() : null)
                 .phoneVerified(user.isPhoneVerified())
                 .terminalId(user.getTerminalId())
+                .serverIp(terminal != null ? terminal.getServerIp() : null)
+                .serverPort(terminal != null ? terminal.getServerPort() : null)
                 .active(user.isActive())
                 .build();
     }
