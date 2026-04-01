@@ -35,6 +35,8 @@ public interface PosAccountRepository extends JpaRepository<PosAccount, Long> {
 
     long countByAdminIdAndMerchantId(Long adminId, Long merchantId);
 
+    void deleteByAdminIdAndMerchantId(Long adminId, Long merchantId);
+
     Optional<PosAccount> findFirstByRoleOrderByIdAsc(String role);
 
     @Transactional

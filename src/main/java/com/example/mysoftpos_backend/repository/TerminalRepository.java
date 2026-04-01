@@ -11,5 +11,6 @@ public interface TerminalRepository extends JpaRepository<Terminal, Long> {
     long countByMerchantId(Long merchantId);
     Optional<Terminal> findFirstByPosAccountId(Long posAccountId);
     Optional<Terminal> findByTerminalCode(String terminalCode);
+    void deleteByMerchantId(Long merchantId);
     boolean existsByTerminalCode(String terminalCode);
 }

@@ -13,6 +13,8 @@ public interface BranchRepository extends JpaRepository<Branch, Long> {
 
     long countByMerchantId(Long merchantId);
 
+    void deleteByMerchantId(Long merchantId);
+
     boolean existsByMerchantIdAndBranchCode(Long merchantId, String branchCode);
 }
 

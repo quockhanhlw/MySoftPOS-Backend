@@ -16,6 +16,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
 import java.util.Map;
@@ -87,6 +88,7 @@ public class ConfigController {
     }
 
     @DeleteMapping("/merchants/{id}")
+    @Transactional
     public ResponseEntity<?> deleteMerchant(@AuthenticationPrincipal PosAccount admin,
                                             @PathVariable Long id) {
         Merchant merchant = merchantRepo.findById(id).orElse(null);
@@ -94,16 +96,16 @@ public class ConfigController {
             return ResponseEntity.badRequest().body(Map.of("error", "Not found or access denied"));
         }
 
-        long accountCount = userRepo.countByAdminIdAndMerchantId(admin.getId(), id);
-        long branchCount = branchRepo.countByMerchantId(id);
-        long terminalCount = terminalRepo.countByMerchantId(id);
-        if (accountCount > 0 || branchCount > 0 || terminalCount > 0) {
-            return ResponseEntity.status(HttpStatus.CONFLICT)
-                    .body(Map.of("error", "Merchant still has linked accounts/branches/terminals"));
+        // Cascade remove merchant-owned config so admin can delete merchant from UI directly.
+        terminalRepo.deleteByMerchantId(id);
+        branchRepo.deleteByMerchantId(id);
+        if (merchant.getOwnerUserId() != null) {
+            merchant.setOwnerUserId(null);
+            merchantRepo.save(merchant);
         }
-
+        userRepo.deleteByAdminIdAndMerchantId(admin.getId(), id);
         merchantRepo.delete(merchant);
-        return ResponseEntity.ok(Map.of("message", "Deleted"));
+        return ResponseEntity.ok(Map.of("message", "Merchant deleted"));
     }
 
     @GetMapping("/merchants/{id}/accounts")
