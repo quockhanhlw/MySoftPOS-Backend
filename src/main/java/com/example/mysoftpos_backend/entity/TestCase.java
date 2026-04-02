@@ -58,6 +58,10 @@ public class TestCase {
     @Column(columnDefinition = "TEXT")
     private String fieldConfigJson;
 
+    @Column(name = "is_default", nullable = false)
+    @Builder.Default
+    private Boolean isDefault = Boolean.FALSE;
+
     @Column(name = "created_at", nullable = false, updatable = false)
     @Builder.Default
     private LocalDateTime createdAt = LocalDateTime.now();

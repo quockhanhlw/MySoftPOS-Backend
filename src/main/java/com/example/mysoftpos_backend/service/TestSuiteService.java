@@ -10,6 +10,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 import java.util.stream.Collectors;
@@ -24,7 +25,7 @@ public class TestSuiteService {
     // ==================== Suites ====================
 
     public List<TestSuiteDto> getSuitesByAdmin(Long adminId) {
-        return suiteRepo.findByAdminIdOrderByCreatedAtDesc(adminId).stream()
+        return suiteRepo.findByAdminIdInOrderByCreatedAtDesc(Arrays.asList(0L, adminId)).stream()
                 .map(this::toSuiteDto)
                 .collect(Collectors.toList());
     }
@@ -32,7 +33,7 @@ public class TestSuiteService {
     public TestSuiteDto getSuiteWithCases(Long adminId, Long suiteId) {
         TestSuite suite = suiteRepo.findById(suiteId)
                 .orElseThrow(() -> new RuntimeException("Suite not found"));
-        if (!suite.getAdminId().equals(adminId)) {
+        if (!canAccessSuite(adminId, suite)) {
             throw new RuntimeException("Access denied");
         }
         TestSuiteDto dto = toSuiteDto(suite);
@@ -54,7 +55,7 @@ public class TestSuiteService {
     public TestSuiteDto updateSuite(Long adminId, Long suiteId, TestSuiteDto req) {
         TestSuite suite = suiteRepo.findById(suiteId)
                 .orElseThrow(() -> new RuntimeException("Suite not found"));
-        if (!suite.getAdminId().equals(adminId)) {
+        if (!canModifySuite(adminId, suite)) {
             throw new RuntimeException("Access denied");
         }
         if (req.getName() != null)
@@ -69,7 +70,7 @@ public class TestSuiteService {
     public void deleteSuite(Long adminId, Long suiteId) {
         TestSuite suite = suiteRepo.findById(suiteId)
                 .orElseThrow(() -> new RuntimeException("Suite not found"));
-        if (!suite.getAdminId().equals(adminId)) {
+        if (!canModifySuite(adminId, suite)) {
             throw new RuntimeException("Access denied");
         }
         caseRepo.deleteBySuiteId(suiteId);
@@ -81,7 +82,7 @@ public class TestSuiteService {
     public List<TestCaseDto> getCasesBySuite(Long adminId, Long suiteId) {
         TestSuite suite = suiteRepo.findById(suiteId)
                 .orElseThrow(() -> new RuntimeException("Suite not found"));
-        if (!suite.getAdminId().equals(adminId)) {
+        if (!canAccessSuite(adminId, suite)) {
             throw new RuntimeException("Access denied");
         }
         return caseRepo.findBySuiteIdOrderByCreatedAtDesc(suiteId).stream()
@@ -91,7 +92,7 @@ public class TestSuiteService {
     public TestCaseDto createCase(Long adminId, Long suiteId, TestCaseDto req) {
         TestSuite suite = suiteRepo.findById(suiteId)
                 .orElseThrow(() -> new RuntimeException("Suite not found"));
-        if (!suite.getAdminId().equals(adminId)) {
+        if (!canModifySuite(adminId, suite)) {
             throw new RuntimeException("Access denied");
         }
         TestCase tc = TestCase.builder()
@@ -108,6 +109,7 @@ public class TestSuiteService {
                 .scheme(req.getScheme())
                 .track2(req.getTrack2())
                 .fieldConfigJson(req.getFieldConfigJson())
+                .isDefault(Boolean.TRUE.equals(req.getIsDefault()))
                 .build();
         caseRepo.save(tc);
         return toCaseDto(tc);
@@ -118,6 +120,9 @@ public class TestSuiteService {
                 .orElseThrow(() -> new RuntimeException("Case not found"));
         if (!tc.getSuite().getAdminId().equals(adminId)) {
             throw new RuntimeException("Access denied");
+        }
+        if (Boolean.TRUE.equals(tc.getIsDefault())) {
+            throw new RuntimeException("Default case cannot be edited");
         }
         if (req.getName() != null)
             tc.setName(req.getName());
@@ -143,6 +148,8 @@ public class TestSuiteService {
             tc.setTrack2(req.getTrack2());
         if (req.getFieldConfigJson() != null)
             tc.setFieldConfigJson(req.getFieldConfigJson());
+        if (req.getIsDefault() != null)
+            tc.setIsDefault(req.getIsDefault());
         caseRepo.save(tc);
         return toCaseDto(tc);
     }
@@ -152,6 +159,9 @@ public class TestSuiteService {
                 .orElseThrow(() -> new RuntimeException("Case not found"));
         if (!tc.getSuite().getAdminId().equals(adminId)) {
             throw new RuntimeException("Access denied");
+        }
+        if (Boolean.TRUE.equals(tc.getIsDefault())) {
+            throw new RuntimeException("Default case cannot be deleted");
         }
         caseRepo.delete(tc);
     }
@@ -168,7 +178,7 @@ public class TestSuiteService {
                 if (suite != null && !suite.getAdminId().equals(adminId))
                     continue;
             } else {
-                suite = null;
+                suite = suiteRepo.findByAdminIdAndName(adminId, suiteDto.getName()).orElse(null);
             }
             if (suite == null) {
                 suite = TestSuite.builder()
@@ -187,21 +197,30 @@ public class TestSuiteService {
 
             if (suiteDto.getTestCases() != null) {
                 for (TestCaseDto caseDto : suiteDto.getTestCases()) {
-                    TestCase tc = TestCase.builder()
-                            .suite(suite)
-                            .name(caseDto.getName())
-                            .transactionType(caseDto.getTransactionType())
-                            .status(caseDto.getStatus())
-                            .amount(caseDto.getAmount())
-                            .de22(caseDto.getDe22())
-                            .maskedPan(caseDto.getMaskedPan())
-                            .expiry(caseDto.getExpiry())
-                            .reqFilePath(caseDto.getReqFilePath())
-                            .resFilePath(caseDto.getResFilePath())
-                            .scheme(caseDto.getScheme())
-                            .track2(caseDto.getTrack2())
-                            .fieldConfigJson(caseDto.getFieldConfigJson())
-                            .build();
+                    TestCase tc = null;
+                    if (caseDto.getId() != null) {
+                        tc = caseRepo.findById(caseDto.getId()).orElse(null);
+                    }
+                    if (tc == null && caseDto.getName() != null && caseDto.getDe22() != null) {
+                        tc = caseRepo.findBySuiteIdAndNameAndDe22(suite.getId(), caseDto.getName(), caseDto.getDe22()).orElse(null);
+                    }
+                    if (tc == null) {
+                        tc = TestCase.builder().suite(suite).build();
+                    }
+                    tc.setSuite(suite);
+                    tc.setName(caseDto.getName());
+                    tc.setTransactionType(caseDto.getTransactionType());
+                    tc.setStatus(caseDto.getStatus());
+                    tc.setAmount(caseDto.getAmount());
+                    tc.setDe22(caseDto.getDe22());
+                    tc.setMaskedPan(caseDto.getMaskedPan());
+                    tc.setExpiry(caseDto.getExpiry());
+                    tc.setReqFilePath(caseDto.getReqFilePath());
+                    tc.setResFilePath(caseDto.getResFilePath());
+                    tc.setScheme(caseDto.getScheme());
+                    tc.setTrack2(caseDto.getTrack2());
+                    tc.setFieldConfigJson(caseDto.getFieldConfigJson());
+                    tc.setIsDefault(Boolean.TRUE.equals(caseDto.getIsDefault()));
                     caseRepo.save(tc);
                     count++;
                 }
@@ -240,7 +259,16 @@ public class TestSuiteService {
                 .scheme(tc.getScheme())
                 .track2(tc.getTrack2())
                 .fieldConfigJson(tc.getFieldConfigJson())
+                .isDefault(tc.getIsDefault())
                 .createdAt(tc.getCreatedAt() != null ? tc.getCreatedAt().toString() : null)
                 .build();
+    }
+
+    private boolean canAccessSuite(Long adminId, TestSuite suite) {
+        return suite != null && (Long.valueOf(0L).equals(suite.getAdminId()) || suite.getAdminId().equals(adminId));
+    }
+
+    private boolean canModifySuite(Long adminId, TestSuite suite) {
+        return suite != null && !Long.valueOf(0L).equals(suite.getAdminId()) && suite.getAdminId().equals(adminId);
     }
 }

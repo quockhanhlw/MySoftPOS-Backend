@@ -24,5 +24,6 @@ public class TestCaseDto {
     private String scheme;
     private String track2;
     private String fieldConfigJson;
+    private Boolean isDefault;
     private String createdAt;
 }
