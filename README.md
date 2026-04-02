@@ -1,99 +1,174 @@
-# MySoftPOS Backend
+# MySoftPOS Backend - Huong dan su dung
 
-Spring Boot backend cho MySoftPOS, thiết kế để deploy trên Render và kết nối MySQL của Aiven bằng biến môi trường.
+Tai lieu nay huong dan chay va su dung `mysoftpos-backend` cho local/dev va deploy.
 
-## Runtime configuration
+## 1) Tong quan
 
-Backend **không** nên chứa secret thật trong file được commit. Các biến môi trường cần có:
+- Backend su dung Spring Boot + MySQL + Flyway.
+- Xac thuc bang JWT.
+- Tai khoan he thong dung domain `PosAccount` (khong dung `User` cu).
+- Swagger UI: `/swagger-ui.html`
+- OpenAPI docs: `/api-docs`
 
-- `PORT` - Render tự cấp, local có thể bỏ qua
-- `SPRING_DATASOURCE_URL` - JDBC URL của Aiven MySQL
-- `SPRING_DATASOURCE_DRIVER_CLASS_NAME` - mặc định `com.mysql.cj.jdbc.Driver`
-- `SPRING_DATASOURCE_USERNAME` - user của Aiven
-- `SPRING_DATASOURCE_PASSWORD` - password của Aiven
-- `SPRING_JPA_HIBERNATE_DDL_AUTO` - nên để `validate` khi dùng Flyway
-- `SPRING_JPA_SHOW_SQL` - `true` hoặc `false`
-- `SPRING_JPA_DATABASE_PLATFORM` - mặc định `org.hibernate.dialect.MySQLDialect`
-- `SPRING_FLYWAY_ENABLED` - bật Flyway (`true`)
-- `SPRING_FLYWAY_LOCATIONS` - mặc định `classpath:db/migration`
-- `SPRING_FLYWAY_BASELINE_ON_MIGRATE` - lần đầu deploy DB cũ: `true`; sau khi baseline xong: `false`
-- `SPRING_FLYWAY_BASELINE_VERSION` - mặc định `0`
-- `SPRING_FLYWAY_VALIDATE_ON_MIGRATE` - khuyến nghị `true`
-- `APP_JWT_SECRET` - secret JWT đủ dài, chỉ cấu hình qua env
-- `SPRING_MAIL_HOST` - SMTP host để gửi OTP qua email
-- `SPRING_MAIL_PORT` - SMTP port (thường 587)
-- `SPRING_MAIL_USERNAME` - SMTP username/email gửi
-- `SPRING_MAIL_PASSWORD` - SMTP password/app-password
-- `SPRING_MAIL_SMTP_AUTH` - bật/tắt SMTP auth (`true`/`false`)
-- `SPRING_MAIL_SMTP_STARTTLS_ENABLE` - bật/tắt STARTTLS (`true`/`false`)
-- `APP_FORGOT_PASSWORD_MAIL_FROM` - địa chỉ From cho email OTP
-- `APP_FORGOT_PASSWORD_CODE_EXPIRATION_MINUTES` - thời gian hết hạn OTP
-- `APP_FORGOT_PASSWORD_MAX_VERIFY_ATTEMPTS` - số lần nhập sai OTP tối đa
+## 2) Yeu cau moi truong
 
-## Render + Aiven
+- Java 21
+- Maven Wrapper (`mvnw.cmd`) da co san trong repo
+- MySQL (local hoac cloud, vi du Aiven)
 
-Trên Render, cấu hình các environment variables ở trên trong service settings. Không commit password hoặc JWT secret vào:
+## 3) Cau hinh can thiet
 
-- `src/main/resources/application.yml`
+Khuyen nghi dat qua environment variables (khong hard-code secret).
+
+Bien quan trong:
+
+- `SPRING_DATASOURCE_URL`
+- `SPRING_DATASOURCE_USERNAME`
+- `SPRING_DATASOURCE_PASSWORD`
+- `APP_JWT_SECRET`
+- `SPRING_FLYWAY_ENABLED` (mac dinh `true`)
+- `SPRING_FLYWAY_BASELINE_ON_MIGRATE` (lan dau voi DB cu co the can `true`)
+
+Bien email forgot-password (neu dung OTP qua email):
+
+- `SPRING_MAIL_HOST`, `SPRING_MAIL_PORT`, `SPRING_MAIL_USERNAME`, `SPRING_MAIL_PASSWORD`
+- `SPRING_MAIL_SMTP_AUTH`, `SPRING_MAIL_SMTP_STARTTLS_ENABLE`
+- `APP_FORGOT_PASSWORD_MAIL_FROM`
+
+Ban co the tham khao mau o `src/main/resources/application.example.yml`.
+
+## 4) Chay backend local
+
+Tu thu muc `mysoftpos-backend`:
+
+```powershell
+$env:SPRING_DATASOURCE_URL="jdbc:mysql://127.0.0.1:3306/mysoftpos?serverTimezone=UTC&allowPublicKeyRetrieval=true&useSSL=false"
+$env:SPRING_DATASOURCE_USERNAME="root"
+$env:SPRING_DATASOURCE_PASSWORD="your_password"
+$env:APP_JWT_SECRET="your_long_random_jwt_secret_at_least_32_chars"
+.\mvnw.cmd spring-boot:run
+```
+
+Kiem tra nhanh:
+
+```powershell
+Invoke-RestMethod -Method Get -Uri "http://localhost:8080/health"
+```
+
+## 5) Build va test
+
+```powershell
+.\mvnw.cmd test
+.\mvnw.cmd clean package
+```
+
+Chay test tich hop CRUD quan trong:
+
+```powershell
+.\mvnw.cmd "-Dtest=BackendCrudCriticalIT,BackendCrudControllerIT" test
+```
+
+## 6) Luong su dung co ban
+
+### 6.1 Dang nhap admin
+
+`POST /api/auth/login`
+
+Body:
+
+```json
+{
+  "username": "admin_username",
+  "password": "admin_password"
+}
+```
+
+Lay `accessToken` de goi API co bao mat:
+
+`Authorization: Bearer <accessToken>`
+
+### 6.2 Quan ly merchant / branch / account / terminal (admin)
+
+- Merchant: `/api/merchants`
+- Branch: `/api/merchants/{merchantId}/branches`
+- Pos account: `/api/pos-accounts`
+- Terminal: `/api/terminals`
+
+Luu y moi:
+
+- Co `DELETE /api/terminals/{id}`
+- Co `DELETE /api/merchants/{merchantId}/branches/{branchId}` voi guardrails:
+  - khong xoa branch `MAIN`
+  - khong xoa branch dang co account/terminal lien ket
+
+### 6.3 Dong bo giao dich
+
+- Device push batch: `POST /api/transactions/sync` (authenticated)
+- Admin xem lich su: `GET /api/transactions` (admin-only)
+
+Backend da scope transaction theo admin, tranh lo du lieu cheo admin.
+
+## 7) Phan quyen endpoint (tom tat)
+
+Public:
+
+- `/api/auth/register`
+- `/api/auth/login`
+- `/api/auth/refresh`
+- `/api/auth/forgot-password/**`
+- `/health`, `/swagger-ui/**`, `/api-docs/**`
+
+Admin-only:
+
+- `/api/pos-accounts/**`
+- `/api/merchants/**`
+- `/api/terminals/**`
+- `/api/test-suites/**`
+- `GET /api/transactions/**`
+
+Authenticated (khac):
+
+- `POST /api/transactions/sync`
+- `PUT /api/auth/change-password`
+
+## 8) Smoke test script
+
+Da co script: `scripts/smoke/render-branch-terminal-smoke.ps1`
+
+Vi du chay:
+
+```powershell
+.\scripts\smoke\render-branch-terminal-smoke.ps1 `
+  -BaseUrl "https://your-backend-url" `
+  -AdminUsername "admin_username" `
+  -AdminPassword "admin_password" `
+  -MerchantId 1
+```
+
+Dry-run:
+
+```powershell
+.\scripts\smoke\render-branch-terminal-smoke.ps1 `
+  -BaseUrl "https://your-backend-url" `
+  -AdminUsername "admin_username" `
+  -AdminPassword "admin_password" `
+  -MerchantId 1 `
+  -DryRun
+```
+
+## 9) Loi thuong gap
+
+- `Access denied for user ... (using password: NO)`
+  - Chua set `SPRING_DATASOURCE_PASSWORD` hoac set sai.
+- Loi JWT secret
+  - Kiem tra `APP_JWT_SECRET` da set va du do dai.
+- Flyway baseline
+  - DB cu chua co `flyway_schema_history`: tam set `SPRING_FLYWAY_BASELINE_ON_MIGRATE=true`, sau do doi lai `false`.
+
+## 10) Tai lieu lien quan
+
 - `src/main/resources/application.example.yml`
-- bất kỳ file `application-local*.yml` nào
-
-## Local development
-
-`src/main/resources/application-local.yml` đã được ignore trong git. Nếu cần chạy local với profile riêng, hãy tự tạo file này trên máy của bạn và **không commit**.
-
-Ví dụ tối thiểu:
-
-```yml
-spring:
-  datasource:
-    url: jdbc:mysql://YOUR_AIVEN_HOST:YOUR_AIVEN_PORT/YOUR_DATABASE?sslMode=REQUIRED&serverTimezone=UTC&allowPublicKeyRetrieval=true
-    driver-class-name: com.mysql.cj.jdbc.Driver
-    username: YOUR_AIVEN_USERNAME
-    password: YOUR_AIVEN_PASSWORD
-
-app:
-  jwt:
-    secret: YOUR_LONG_RANDOM_JWT_SECRET
-```
-
-## Build
-
-```powershell
-.\mvnw test
-.\mvnw clean package
-```
-
-## API endpoint naming
-
-- Canonical account endpoint: `/api/pos-accounts`
-- Canonical transaction-by-account endpoint: `/api/transactions/pos-accounts/{posAccountId}`
-
-## Flyway rollout
-
-Chạy precheck trước khi deploy migration constraints/index cho `merchants`:
-
-```sql
--- scripts/precheck_merchants_constraints.sql
-```
-
-Lần chạy đầu trên production (DB đã có data nhưng chưa có `flyway_schema_history`):
-
-```powershell
-$env:SPRING_JPA_HIBERNATE_DDL_AUTO="validate"
-$env:SPRING_FLYWAY_ENABLED="true"
-$env:SPRING_FLYWAY_BASELINE_ON_MIGRATE="true"
-.\mvnw spring-boot:run
-```
-
-Sau khi baseline thành công, khóa lại baseline-on-migrate:
-
-```powershell
-$env:SPRING_FLYWAY_BASELINE_ON_MIGRATE="false"
-.\mvnw spring-boot:run
-```
-
-## Docker
-
-`Dockerfile` build jar bằng Maven và chạy app bằng `JAVA_OPTS` nếu được cung cấp ở môi trường runtime.
+- `src/main/resources/application.yml`
+- `src/main/resources/application-local.yml`
+- `scripts/smoke/render-branch-terminal-smoke.ps1`
 

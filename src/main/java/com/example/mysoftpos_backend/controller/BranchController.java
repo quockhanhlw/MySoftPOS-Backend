@@ -9,6 +9,7 @@ import com.example.mysoftpos_backend.entity.PosAccount;
 import com.example.mysoftpos_backend.repository.BranchRepository;
 import com.example.mysoftpos_backend.repository.MerchantRepository;
 import com.example.mysoftpos_backend.repository.PosAccountRepository;
+import com.example.mysoftpos_backend.repository.TerminalRepository;
 import com.example.mysoftpos_backend.service.PosAccountServiceCore;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -22,6 +23,7 @@ import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.bind.annotation.DeleteMapping;
 
 import java.util.List;
 import java.util.Map;
@@ -37,6 +39,7 @@ public class BranchController {
     private final MerchantRepository merchantRepo;
     private final BranchRepository branchRepo;
     private final PosAccountRepository userRepo;
+    private final TerminalRepository terminalRepo;
     private final PosAccountServiceCore posAccountServiceCore;
 
     @GetMapping
@@ -132,6 +135,34 @@ public class BranchController {
                 .map(posAccountServiceCore::toPosAccountDto)
                 .toList();
         return ResponseEntity.ok(accounts);
+    }
+
+    @DeleteMapping("/{branchId}")
+    public ResponseEntity<?> deleteBranch(@AuthenticationPrincipal PosAccount admin,
+                                          @PathVariable Long merchantId,
+                                          @PathVariable Long branchId) {
+        Merchant merchant = merchantRepo.findById(merchantId).orElse(null);
+        if (merchant == null || !Objects.equals(merchant.getAdminId(), admin.getId())) {
+            return ResponseEntity.badRequest().body(Map.of("error", "Not found or access denied"));
+        }
+
+        Branch branch = branchRepo.findById(branchId).orElse(null);
+        if (branch == null || !Objects.equals(branch.getMerchantId(), merchantId)) {
+            return ResponseEntity.badRequest().body(Map.of("error", "Branch not found"));
+        }
+        if (DEFAULT_BRANCH_CODE.equalsIgnoreCase(normalizeCode(branch.getBranchCode()))) {
+            return ResponseEntity.badRequest().body(Map.of("error", "Cannot delete MAIN branch"));
+        }
+
+        int accountCount = userRepo.findByMerchantIdAndBranchId(merchantId, branchId).size();
+        long terminalCount = terminalRepo.countByMerchantIdAndBranchId(merchantId, branchId);
+        if (accountCount > 0 || terminalCount > 0) {
+            return ResponseEntity.status(HttpStatus.CONFLICT)
+                    .body(Map.of("error", "Branch has linked accounts or terminals"));
+        }
+
+        branchRepo.delete(branch);
+        return ResponseEntity.ok(Map.of("message", "Branch deleted"));
     }
 
 

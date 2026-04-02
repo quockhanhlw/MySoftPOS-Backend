@@ -29,20 +29,22 @@ public class TransactionController {
 
     /** Admin views all transactions */
     @GetMapping
-    public ResponseEntity<List<TransactionSummaryDto>> getAll() {
-        return ResponseEntity.ok(txnService.getAllTransactions());
+    public ResponseEntity<List<TransactionSummaryDto>> getAll(@AuthenticationPrincipal PosAccount admin) {
+        return ResponseEntity.ok(txnService.getAllTransactions(admin.getId()));
     }
 
     /** Admin views by terminal */
     @GetMapping("/terminal/{code}")
-    public ResponseEntity<List<TransactionSummaryDto>> getByTerminal(@PathVariable String code) {
-        return ResponseEntity.ok(txnService.getByTerminal(code));
+    public ResponseEntity<List<TransactionSummaryDto>> getByTerminal(@AuthenticationPrincipal PosAccount admin,
+                                                                     @PathVariable String code) {
+        return ResponseEntity.ok(txnService.getByTerminal(admin.getId(), code));
     }
 
     /** Admin views by POS account (canonical route). */
     @GetMapping("/pos-accounts/{posAccountId}")
-    public ResponseEntity<List<TransactionSummaryDto>> getByPosAccount(@PathVariable Long posAccountId) {
-        return ResponseEntity.ok(txnService.getByPosAccount(posAccountId));
+    public ResponseEntity<List<TransactionSummaryDto>> getByPosAccount(@AuthenticationPrincipal PosAccount admin,
+                                                                       @PathVariable Long posAccountId) {
+        return ResponseEntity.ok(txnService.getByPosAccount(admin.getId(), posAccountId));
     }
 
 }

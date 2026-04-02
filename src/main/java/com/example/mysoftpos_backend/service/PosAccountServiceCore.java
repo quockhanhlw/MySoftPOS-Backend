@@ -194,6 +194,7 @@ public class PosAccountServiceCore {
         if (!adminId.equals(posAccount.getAdminId())) {
             throw new RuntimeException("Access denied");
         }
+        terminalRepo.clearPosAccountMapping(posAccount.getId());
         merchantRepo.deleteByOwnerUserId(posAccount.getId());
         posAccountRepo.delete(posAccount);
     }
@@ -239,7 +240,8 @@ public class PosAccountServiceCore {
                 .role(posAccount.getRole())
                 .fullName(merchant != null ? merchant.getFullName() : null)
                 .username(posAccount.getUsername())
-                .phone(merchant != null ? merchant.getPhone() : null)
+                .phone(posAccount.getUsername())
+                .merchantPhone(merchant != null ? merchant.getPhone() : null)
                 .email(merchant != null ? merchant.getEmail() : null)
                 .dob(merchant != null ? merchant.getDob() : null)
                 .gender(merchant != null ? merchant.getGender() : null)

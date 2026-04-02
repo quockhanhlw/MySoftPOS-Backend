@@ -22,6 +22,7 @@ public class PosAccountDto {
     private String fullName;
     private String username;
     private String phone;
+    private String merchantPhone;
     private String email;
     private String dob;
     private String gender;

@@ -66,29 +66,30 @@ public class TransactionService {
     }
 
     @Transactional(readOnly = true)
-    public List<TransactionSummaryDto> getAllTransactions() {
-        return txnRepo.findAllByOrderByTxnTimestampDesc().stream()
+    public List<TransactionSummaryDto> getAllTransactions(Long adminId) {
+        return txnRepo.findByPosAccountAdminIdOrderByTxnTimestampDesc(adminId).stream()
                 .map(this::toDto).collect(Collectors.toList());
     }
 
     @Transactional(readOnly = true)
-    public List<TransactionSummaryDto> getByTerminal(String terminalCode) {
+    public List<TransactionSummaryDto> getByTerminal(Long adminId, String terminalCode) {
         Long terminalId = terminalRepo.findByTerminalCode(terminalCode).map(Terminal::getId).orElse(null);
         if (terminalId == null) {
             return java.util.Collections.emptyList();
         }
-        return txnRepo.findByTerminalIdOrderByTxnTimestampDesc(terminalId).stream()
+        return txnRepo.findByPosAccountAdminIdAndTerminalIdOrderByTxnTimestampDesc(adminId, terminalId).stream()
                 .map(this::toDto).collect(Collectors.toList());
     }
 
     @Transactional(readOnly = true)
-    public List<TransactionSummaryDto> getByPosAccount(Long posAccountId) {
-        return txnRepo.findByPosAccountIdOrderByTxnTimestampDesc(posAccountId).stream()
+    public List<TransactionSummaryDto> getByPosAccount(Long adminId, Long posAccountId) {
+        return txnRepo.findByPosAccountIdAndPosAccountAdminIdOrderByTxnTimestampDesc(posAccountId, adminId).stream()
                 .map(this::toDto).collect(Collectors.toList());
     }
 
 
     private TransactionSummaryDto toDto(TransactionSummary t) {
+        Long posAccountId = t.getPosAccount() != null ? t.getPosAccount().getId() : null;
         return TransactionSummaryDto.builder()
                 .id(t.getId())
                 .traceNumber(t.getTraceNumber())
@@ -102,8 +103,8 @@ public class TransactionService {
                 .deviceId(t.getDeviceId())
                 .txnTimestamp(t.getTxnTimestamp() != null ? t.getTxnTimestamp().format(ISO_FMT) : null)
                 .syncedAt(t.getSyncedAt() != null ? t.getSyncedAt().format(ISO_FMT) : null)
-                .posAccountId(t.getPosAccount() != null ? t.getPosAccount().getId() : null)
-                .userId(null)
+                .posAccountId(posAccountId)
+                .userId(posAccountId)
                 .username(t.getPosAccount() != null ? t.getPosAccount().getUsername() : null)
                 .requestHex(t.getRequestHex())
                 .responseHex(t.getResponseHex())

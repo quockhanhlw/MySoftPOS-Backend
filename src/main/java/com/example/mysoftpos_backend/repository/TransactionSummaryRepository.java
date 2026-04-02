@@ -19,4 +19,13 @@ public interface TransactionSummaryRepository extends JpaRepository<TransactionS
 
     @EntityGraph(attributePaths = "posAccount")
     List<TransactionSummary> findAllByOrderByTxnTimestampDesc();
+
+    @EntityGraph(attributePaths = "posAccount")
+    List<TransactionSummary> findByPosAccountAdminIdOrderByTxnTimestampDesc(Long adminId);
+
+    @EntityGraph(attributePaths = "posAccount")
+    List<TransactionSummary> findByPosAccountAdminIdAndTerminalIdOrderByTxnTimestampDesc(Long adminId, Long terminalId);
+
+    @EntityGraph(attributePaths = "posAccount")
+    List<TransactionSummary> findByPosAccountIdAndPosAccountAdminIdOrderByTxnTimestampDesc(Long posAccountId, Long adminId);
 }

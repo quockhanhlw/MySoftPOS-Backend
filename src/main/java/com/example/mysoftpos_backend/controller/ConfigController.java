@@ -202,6 +202,18 @@ public class ConfigController {
         return ResponseEntity.ok(toTerminalDto(t));
     }
 
+    @DeleteMapping("/terminals/{id}")
+    public ResponseEntity<?> deleteTerminal(@AuthenticationPrincipal PosAccount admin,
+                                            @PathVariable Long id) {
+        Terminal terminal = terminalRepo.findById(id).orElse(null);
+        if (terminal == null || terminal.getMerchant() == null
+                || !Objects.equals(terminal.getMerchant().getAdminId(), admin.getId())) {
+            return ResponseEntity.badRequest().body(Map.of("error", "Not found or access denied"));
+        }
+        terminalRepo.delete(terminal);
+        return ResponseEntity.ok(Map.of("message", "Terminal deleted"));
+    }
+
     // ==================== DTO Mappers ====================
 
     private MerchantDto toMerchantDto(Merchant m) {
@@ -246,7 +258,8 @@ public class ConfigController {
                 .role(user.getRole())
                 .fullName(merchant != null ? merchant.getFullName() : null)
                 .username(user.getUsername())
-                .phone(merchant != null ? merchant.getPhone() : null)
+                .phone(user.getUsername())
+                .merchantPhone(merchant != null ? merchant.getPhone() : null)
                 .email(merchant != null ? merchant.getEmail() : null)
                 .dob(merchant != null ? merchant.getDob() : null)
                 .gender(merchant != null ? merchant.getGender() : null)
