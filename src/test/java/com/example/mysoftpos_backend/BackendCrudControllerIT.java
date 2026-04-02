@@ -77,7 +77,7 @@ class BackendCrudControllerIT {
         saveTransaction(accountA, terminalA.getId(), "HTTP-TRACE-A");
         saveTransaction(accountB, terminalB.getId(), "HTTP-TRACE-B");
 
-        ResponseEntity<List<TransactionSummaryDto>> response = transactionController.getAll(adminA);
+        ResponseEntity<List<TransactionSummaryDto>> response = transactionController.getAll(adminA, null, null);
         assertThat(response.getStatusCode().is2xxSuccessful()).isTrue();
         assertThat(response.getBody()).isNotNull();
         assertThat(response.getBody()).extracting(TransactionSummaryDto::getTraceNumber)

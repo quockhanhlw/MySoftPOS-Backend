@@ -64,7 +64,7 @@ class BackendCrudCriticalIT {
         saveTransaction(accountA, terminalA.getId(), "TRACE-A-001");
         saveTransaction(accountB, terminalB.getId(), "TRACE-B-001");
 
-        List<TransactionSummaryDto> adminAAll = transactionService.getAllTransactions(adminA.getId());
+        List<TransactionSummaryDto> adminAAll = transactionService.getAllTransactions(adminA.getId(), null, null);
         assertThat(adminAAll).extracting(TransactionSummaryDto::getTraceNumber)
                 .containsExactly("TRACE-A-001");
 
