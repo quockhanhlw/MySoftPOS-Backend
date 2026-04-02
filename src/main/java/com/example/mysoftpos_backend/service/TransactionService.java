@@ -5,6 +5,7 @@ import com.example.mysoftpos_backend.dto.TransactionSyncRequest;
 import com.example.mysoftpos_backend.entity.PosAccount;
 import com.example.mysoftpos_backend.entity.TransactionSummary;
 import com.example.mysoftpos_backend.entity.Terminal;
+import com.example.mysoftpos_backend.repository.PosAccountRepository;
 import com.example.mysoftpos_backend.repository.TransactionSummaryRepository;
 import com.example.mysoftpos_backend.repository.TerminalRepository;
 import lombok.RequiredArgsConstructor;
@@ -16,6 +17,8 @@ import java.time.LocalDateTime;
 import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
 import java.util.List;
+import java.util.Map;
+import java.util.HashMap;
 import java.util.stream.Collectors;
 
 @Service
@@ -24,15 +27,18 @@ public class TransactionService {
 
     private final TransactionSummaryRepository txnRepo;
     private final TerminalRepository terminalRepo;
+    private final PosAccountRepository posAccountRepo;
     private final SensitiveDataMaskingService maskingService;
     private static final DateTimeFormatter ISO_FMT = DateTimeFormatter.ISO_LOCAL_DATE_TIME;
 
     public int syncTransactions(PosAccount posAccount, TransactionSyncRequest req) {
         int synced = 0;
         if (req.getTransactions() == null) return 0;
+        if (posAccount == null || posAccount.getId() == null) return 0;
 
         for (TransactionSyncRequest.TxnItem item : req.getTransactions()) {
-            if (txnRepo.existsByTraceNumber(item.getTraceNumber())) continue;
+            if (item.getTraceNumber() == null || item.getTraceNumber().isBlank()) continue;
+            if (txnRepo.existsByTraceNumberAndPosAccountId(item.getTraceNumber(), posAccount.getId())) continue;
 
             Long terminalId = item.getTerminalId();
             if (terminalId == null && item.getTerminalCode() != null && !item.getTerminalCode().isBlank()) {
@@ -97,6 +103,66 @@ public class TransactionService {
     public List<TransactionSummaryDto> getByPosAccount(Long adminId, Long posAccountId) {
         return txnRepo.findByPosAccountIdAndPosAccountAdminIdOrderByTxnTimestampDesc(posAccountId, adminId).stream()
                 .map(this::toDto).collect(Collectors.toList());
+    }
+
+    @Transactional
+    public Map<String, Integer> backfillAdminTransactions(Long adminId, Long merchantId) {
+        List<PosAccount> accounts = (merchantId != null)
+                ? posAccountRepo.findByAdminIdAndMerchantIdOrderByIdAsc(adminId, merchantId)
+                : posAccountRepo.findByAdminId(adminId);
+        if (accounts.isEmpty()) {
+            return Map.of("relinked", 0, "scanned", 0, "totalScoped", 0);
+        }
+
+        Map<Long, PosAccount> accountById = new HashMap<>();
+        for (PosAccount account : accounts) {
+            accountById.put(account.getId(), account);
+        }
+
+        List<Terminal> adminTerminals = terminalRepo.findByMerchantAdminId(adminId);
+        Map<Long, PosAccount> accountByTerminalId = new HashMap<>();
+        for (Terminal terminal : adminTerminals) {
+            if (terminal == null || terminal.getId() == null || terminal.getPosAccountId() == null) {
+                continue;
+            }
+            PosAccount account = accountById.get(terminal.getPosAccountId());
+            if (account == null) {
+                continue;
+            }
+            if (merchantId != null && !merchantId.equals(account.getMerchantId())) {
+                continue;
+            }
+            accountByTerminalId.put(terminal.getId(), account);
+        }
+
+        if (accountByTerminalId.isEmpty()) {
+            int total = merchantId != null
+                    ? (int) txnRepo.countByAdminIdAndMerchantId(adminId, merchantId)
+                    : (int) txnRepo.countByAdminId(adminId);
+            return Map.of("relinked", 0, "scanned", 0, "totalScoped", total);
+        }
+
+        List<Long> terminalIds = accountByTerminalId.keySet().stream().toList();
+        List<TransactionSummary> orphans = txnRepo.findByPosAccountIsNullAndTerminalIdInOrderByTxnTimestampDesc(terminalIds);
+
+        int relinked = 0;
+        for (TransactionSummary txn : orphans) {
+            PosAccount mapped = accountByTerminalId.get(txn.getTerminalId());
+            if (mapped == null) {
+                continue;
+            }
+            txn.setPosAccount(mapped);
+            relinked++;
+        }
+
+        if (relinked > 0) {
+            txnRepo.saveAll(orphans);
+        }
+
+        int total = merchantId != null
+                ? (int) txnRepo.countByAdminIdAndMerchantId(adminId, merchantId)
+                : (int) txnRepo.countByAdminId(adminId);
+        return Map.of("relinked", relinked, "scanned", orphans.size(), "totalScoped", total);
     }
 
 

@@ -5,7 +5,9 @@ import lombok.*;
 import java.time.LocalDateTime;
 
 @Entity
-@Table(name = "transactions")
+@Table(name = "transactions", uniqueConstraints = {
+        @UniqueConstraint(name = "uk_transactions_trace_pos_account", columnNames = {"trace_number", "pos_account_id"})
+})
 @Getter
 @Setter
 @NoArgsConstructor
@@ -17,7 +19,7 @@ public class TransactionSummary {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @Column(nullable = false, unique = true, length = 20)
+    @Column(nullable = false, length = 20)
     private String traceNumber;
 
     @Column(length = 20)

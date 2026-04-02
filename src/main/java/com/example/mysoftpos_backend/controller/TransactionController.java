@@ -36,6 +36,14 @@ public class TransactionController {
         return ResponseEntity.ok(txnService.getAllTransactions(admin.getId(), merchantId, terminalId));
     }
 
+    /** Admin backfill: repair missing transaction-account links (legacy data). */
+    @PostMapping("/admin/backfill")
+    public ResponseEntity<Map<String, Integer>> backfillAdminTransactions(
+            @AuthenticationPrincipal PosAccount admin,
+            @RequestParam(name = "merchantId", required = false) Long merchantId) {
+        return ResponseEntity.ok(txnService.backfillAdminTransactions(admin.getId(), merchantId));
+    }
+
     /** Admin views by terminal */
     @GetMapping("/terminal/{code}")
     public ResponseEntity<List<TransactionSummaryDto>> getByTerminal(@AuthenticationPrincipal PosAccount admin,
