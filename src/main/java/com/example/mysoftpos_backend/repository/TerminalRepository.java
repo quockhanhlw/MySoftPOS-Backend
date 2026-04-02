@@ -1,6 +1,7 @@
 package com.example.mysoftpos_backend.repository;
 
 import com.example.mysoftpos_backend.entity.Terminal;
+import org.springframework.data.jpa.repository.EntityGraph;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
@@ -12,6 +13,7 @@ import java.util.Optional;
 public interface TerminalRepository extends JpaRepository<Terminal, Long> {
     List<Terminal> findByMerchantId(Long merchantId);
     long countByMerchantIdAndBranchId(Long merchantId, Long branchId);
+    @EntityGraph(attributePaths = "merchant")
     List<Terminal> findByMerchantAdminId(Long adminId);
     long countByMerchantId(Long merchantId);
     Optional<Terminal> findFirstByPosAccountId(Long posAccountId);

@@ -129,6 +129,7 @@ public class ConfigController {
     // ==================== Terminals ====================
 
     @GetMapping("/terminals")
+    @Transactional(readOnly = true)
     public ResponseEntity<List<TerminalDto>> getTerminals(@AuthenticationPrincipal PosAccount admin) {
         return ResponseEntity.ok(terminalRepo.findByMerchantAdminId(admin.getId()).stream()
                 .map(this::toTerminalDto).collect(Collectors.toList()));
