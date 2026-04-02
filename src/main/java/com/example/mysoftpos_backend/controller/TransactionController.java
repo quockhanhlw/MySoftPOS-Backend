@@ -29,8 +29,11 @@ public class TransactionController {
 
     /** Admin views all transactions */
     @GetMapping
-    public ResponseEntity<List<TransactionSummaryDto>> getAll(@AuthenticationPrincipal PosAccount admin) {
-        return ResponseEntity.ok(txnService.getAllTransactions(admin.getId()));
+    public ResponseEntity<List<TransactionSummaryDto>> getAll(
+            @AuthenticationPrincipal PosAccount admin,
+            @RequestParam(name = "merchantId", required = false) Long merchantId,
+            @RequestParam(name = "terminalId", required = false) Long terminalId) {
+        return ResponseEntity.ok(txnService.getAllTransactions(admin.getId(), merchantId, terminalId));
     }
 
     /** Admin views by terminal */

@@ -66,9 +66,21 @@ public class TransactionService {
     }
 
     @Transactional(readOnly = true)
-    public List<TransactionSummaryDto> getAllTransactions(Long adminId) {
-        return txnRepo.findByPosAccountAdminIdOrderByTxnTimestampDesc(adminId).stream()
-                .map(this::toDto).collect(Collectors.toList());
+    public List<TransactionSummaryDto> getAllTransactions(Long adminId, Long merchantId, Long terminalId) {
+        List<TransactionSummary> rows;
+        if (merchantId != null && terminalId != null) {
+            rows = txnRepo.findByPosAccountAdminIdAndPosAccountMerchantIdAndTerminalIdOrderByTxnTimestampDesc(
+                    adminId,
+                    merchantId,
+                    terminalId);
+        } else if (merchantId != null) {
+            rows = txnRepo.findByPosAccountAdminIdAndPosAccountMerchantIdOrderByTxnTimestampDesc(adminId, merchantId);
+        } else if (terminalId != null) {
+            rows = txnRepo.findByPosAccountAdminIdAndTerminalIdOrderByTxnTimestampDesc(adminId, terminalId);
+        } else {
+            rows = txnRepo.findByPosAccountAdminIdOrderByTxnTimestampDesc(adminId);
+        }
+        return rows.stream().map(this::toDto).collect(Collectors.toList());
     }
 
     @Transactional(readOnly = true)
