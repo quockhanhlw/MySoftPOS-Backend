@@ -4,17 +4,17 @@ import com.example.mysoftpos_backend.controller.BranchController;
 import com.example.mysoftpos_backend.controller.ConfigController;
 import com.example.mysoftpos_backend.controller.PosAccountController;
 import com.example.mysoftpos_backend.controller.TransactionController;
-import com.example.mysoftpos_backend.dto.TransactionSummaryDto;
+import com.example.mysoftpos_backend.dto.TransactionRecordDto;
 import com.example.mysoftpos_backend.entity.Branch;
 import com.example.mysoftpos_backend.entity.Merchant;
 import com.example.mysoftpos_backend.entity.PosAccount;
 import com.example.mysoftpos_backend.entity.Terminal;
-import com.example.mysoftpos_backend.entity.TransactionSummary;
+import com.example.mysoftpos_backend.entity.TransactionRecord;
 import com.example.mysoftpos_backend.repository.BranchRepository;
 import com.example.mysoftpos_backend.repository.MerchantRepository;
 import com.example.mysoftpos_backend.repository.PosAccountRepository;
 import com.example.mysoftpos_backend.repository.TerminalRepository;
-import com.example.mysoftpos_backend.repository.TransactionSummaryRepository;
+import com.example.mysoftpos_backend.repository.TransactionRecordRepository;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -58,7 +58,7 @@ class BackendCrudControllerIT {
     private TerminalRepository terminalRepository;
 
     @Autowired
-    private TransactionSummaryRepository transactionSummaryRepository;
+    private TransactionRecordRepository transactionSummaryRepository;
 
     @Test
     void get_transactions_is_scoped_by_authenticated_admin() throws Exception {
@@ -77,10 +77,10 @@ class BackendCrudControllerIT {
         saveTransaction(accountA, terminalA.getId(), "HTTP-TRACE-A");
         saveTransaction(accountB, terminalB.getId(), "HTTP-TRACE-B");
 
-        ResponseEntity<List<TransactionSummaryDto>> response = transactionController.getAll(adminA, null, null);
+        ResponseEntity<List<TransactionRecordDto>> response = transactionController.getAll(adminA, null, null);
         assertThat(response.getStatusCode().is2xxSuccessful()).isTrue();
         assertThat(response.getBody()).isNotNull();
-        assertThat(response.getBody()).extracting(TransactionSummaryDto::getTraceNumber)
+        assertThat(response.getBody()).extracting(TransactionRecordDto::getTraceNumber)
                 .contains("HTTP-TRACE-A")
                 .doesNotContain("HTTP-TRACE-B");
     }
@@ -190,7 +190,7 @@ class BackendCrudControllerIT {
     }
 
     private void saveTransaction(PosAccount account, Long terminalId, String traceNumber) {
-        transactionSummaryRepository.save(TransactionSummary.builder()
+        transactionSummaryRepository.save(TransactionRecord.builder()
                 .traceNumber(traceNumber)
                 .amount("1000")
                 .status("APPROVED")

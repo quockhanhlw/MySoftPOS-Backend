@@ -2,15 +2,15 @@ package com.example.mysoftpos_backend;
 
 import com.example.mysoftpos_backend.dto.CreatePosAccountRequest;
 import com.example.mysoftpos_backend.dto.PosAccountDto;
-import com.example.mysoftpos_backend.dto.TransactionSummaryDto;
+import com.example.mysoftpos_backend.dto.TransactionRecordDto;
 import com.example.mysoftpos_backend.entity.Merchant;
 import com.example.mysoftpos_backend.entity.PosAccount;
 import com.example.mysoftpos_backend.entity.Terminal;
-import com.example.mysoftpos_backend.entity.TransactionSummary;
+import com.example.mysoftpos_backend.entity.TransactionRecord;
 import com.example.mysoftpos_backend.repository.MerchantRepository;
 import com.example.mysoftpos_backend.repository.PosAccountRepository;
 import com.example.mysoftpos_backend.repository.TerminalRepository;
-import com.example.mysoftpos_backend.repository.TransactionSummaryRepository;
+import com.example.mysoftpos_backend.repository.TransactionRecordRepository;
 import com.example.mysoftpos_backend.service.PosAccountServiceCore;
 import com.example.mysoftpos_backend.service.TransactionService;
 import org.junit.jupiter.api.Test;
@@ -39,7 +39,7 @@ class BackendCrudCriticalIT {
     private TerminalRepository terminalRepository;
 
     @Autowired
-    private TransactionSummaryRepository transactionSummaryRepository;
+    private TransactionRecordRepository transactionSummaryRepository;
 
     @Autowired
     private TransactionService transactionService;
@@ -64,15 +64,29 @@ class BackendCrudCriticalIT {
         saveTransaction(accountA, terminalA.getId(), "TRACE-A-001");
         saveTransaction(accountB, terminalB.getId(), "TRACE-B-001");
 
-        List<TransactionSummaryDto> adminAAll = transactionService.getAllTransactions(adminA.getId(), null, null);
-        assertThat(adminAAll).extracting(TransactionSummaryDto::getTraceNumber)
+        List<TransactionRecordDto> adminAAll = transactionService.getAllTransactions(adminA.getId(), null, null);
+        assertThat(adminAAll).extracting(TransactionRecordDto::getTraceNumber)
                 .containsExactly("TRACE-A-001");
 
-        List<TransactionSummaryDto> adminAByPosAccount = transactionService.getByPosAccount(adminA.getId(), accountB.getId());
+        List<TransactionRecordDto> adminAByPosAccount = transactionService.getByPosAccount(adminA.getId(), accountB.getId());
         assertThat(adminAByPosAccount).isEmpty();
 
-        List<TransactionSummaryDto> adminAByTerminal = transactionService.getByTerminal(adminA.getId(), terminalB.getTerminalCode());
+        List<TransactionRecordDto> adminAByTerminal = transactionService.getByTerminal(adminA.getId(), terminalB.getTerminalCode());
         assertThat(adminAByTerminal).isEmpty();
+    }
+
+    @Test
+    void transactions_are_visible_for_admin_via_merchant_ownership_when_account_admin_id_missing() {
+        PosAccount admin = saveAdmin("admin-legacy-owner");
+        Merchant merchant = saveMerchant(admin.getId(), "MOWNER000001");
+
+        PosAccount legacyAccount = saveUser(null, merchant.getId(), "legacy-user");
+        Terminal terminal = saveTerminal(merchant, legacyAccount.getId(), "OWNR0001", "10.10.10.10", 6001);
+        saveTransaction(legacyAccount, terminal.getId(), "TRACE-LEGACY-001");
+
+        List<TransactionRecordDto> rows = transactionService.getAllTransactions(admin.getId(), null, null);
+        assertThat(rows).extracting(TransactionRecordDto::getTraceNumber)
+                .contains("TRACE-LEGACY-001");
     }
 
     @Test
@@ -181,7 +195,7 @@ class BackendCrudCriticalIT {
     }
 
     private void saveTransaction(PosAccount account, Long terminalId, String traceNumber) {
-        transactionSummaryRepository.save(TransactionSummary.builder()
+        transactionSummaryRepository.save(TransactionRecord.builder()
                 .traceNumber(traceNumber)
                 .amount("1000")
                 .status("APPROVED")

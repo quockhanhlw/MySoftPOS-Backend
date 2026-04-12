@@ -1,12 +1,12 @@
 package com.example.mysoftpos_backend.service;
 
-import com.example.mysoftpos_backend.dto.TransactionSummaryDto;
+import com.example.mysoftpos_backend.dto.TransactionRecordDto;
 import com.example.mysoftpos_backend.dto.TransactionSyncRequest;
 import com.example.mysoftpos_backend.entity.PosAccount;
-import com.example.mysoftpos_backend.entity.TransactionSummary;
+import com.example.mysoftpos_backend.entity.TransactionRecord;
 import com.example.mysoftpos_backend.entity.Terminal;
 import com.example.mysoftpos_backend.repository.PosAccountRepository;
-import com.example.mysoftpos_backend.repository.TransactionSummaryRepository;
+import com.example.mysoftpos_backend.repository.TransactionRecordRepository;
 import com.example.mysoftpos_backend.repository.TerminalRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -29,7 +29,7 @@ import java.util.stream.Collectors;
 @RequiredArgsConstructor
 public class TransactionService {
 
-    private final TransactionSummaryRepository txnRepo;
+    private final TransactionRecordRepository txnRepo;
     private final TerminalRepository terminalRepo;
     private final PosAccountRepository posAccountRepo;
     private final SensitiveDataMaskingService maskingService;
@@ -51,7 +51,7 @@ public class TransactionService {
                         .orElse(null);
             }
 
-            TransactionSummary txn = TransactionSummary.builder()
+            TransactionRecord txn = TransactionRecord.builder()
                     .traceNumber(item.getTraceNumber())
                     .amount(item.getAmount())
                     .status(item.getStatus())
@@ -76,8 +76,8 @@ public class TransactionService {
     }
 
     @Transactional(readOnly = true)
-    public List<TransactionSummaryDto> getAllTransactions(Long adminId, Long merchantId, Long terminalId) {
-        List<TransactionSummary> rows;
+    public List<TransactionRecordDto> getAllTransactions(Long adminId, Long merchantId, Long terminalId) {
+        List<TransactionRecord> rows;
         if (merchantId != null && terminalId != null) {
             rows = txnRepo.findByPosAccountAdminIdAndPosAccountMerchantIdAndTerminalIdOrderByTxnTimestampDesc(
                     adminId,
@@ -90,12 +90,30 @@ public class TransactionService {
         } else {
             rows = txnRepo.findByPosAccountAdminIdOrderByTxnTimestampDesc(adminId);
         }
+
+        // Legacy compatibility: some historical pos_accounts may miss admin_id but still belong
+        // to merchants owned by this admin. Merge these rows to avoid dropping transactions.
+        List<TransactionRecord> merchantOwnedRows;
+        if (merchantId != null && terminalId != null) {
+            merchantOwnedRows = txnRepo.findByMerchantOwnerAdminIdAndMerchantIdAndTerminalIdOrderByTxnTimestampDesc(
+                    adminId,
+                    merchantId,
+                    terminalId);
+        } else if (merchantId != null) {
+            merchantOwnedRows = txnRepo.findByMerchantOwnerAdminIdAndMerchantIdOrderByTxnTimestampDesc(adminId, merchantId);
+        } else if (terminalId != null) {
+            merchantOwnedRows = txnRepo.findByMerchantOwnerAdminIdAndTerminalIdOrderByTxnTimestampDesc(adminId, terminalId);
+        } else {
+            merchantOwnedRows = txnRepo.findByMerchantOwnerAdminIdOrderByTxnTimestampDesc(adminId);
+        }
+
+        rows = mergeDedupById(rows, merchantOwnedRows);
         rows = includeScopedOrphans(rows, adminId, merchantId, terminalId);
         return rows.stream().map(this::toDto).collect(Collectors.toList());
     }
 
     @Transactional(readOnly = true)
-    public List<TransactionSummaryDto> getByTerminal(Long adminId, String terminalCode) {
+    public List<TransactionRecordDto> getByTerminal(Long adminId, String terminalCode) {
         Long terminalId = terminalRepo.findByTerminalCode(terminalCode).map(Terminal::getId).orElse(null);
         if (terminalId == null) {
             return java.util.Collections.emptyList();
@@ -105,7 +123,7 @@ public class TransactionService {
     }
 
     @Transactional(readOnly = true)
-    public List<TransactionSummaryDto> getByPosAccount(Long adminId, Long posAccountId) {
+    public List<TransactionRecordDto> getByPosAccount(Long adminId, Long posAccountId) {
         return txnRepo.findByPosAccountIdAndPosAccountAdminIdOrderByTxnTimestampDesc(posAccountId, adminId).stream()
                 .map(this::toDto).collect(Collectors.toList());
     }
@@ -148,10 +166,10 @@ public class TransactionService {
         }
 
         List<Long> terminalIds = accountByTerminalId.keySet().stream().toList();
-        List<TransactionSummary> orphans = txnRepo.findByPosAccountIsNullAndTerminalIdInOrderByTxnTimestampDesc(terminalIds);
+        List<TransactionRecord> orphans = txnRepo.findByPosAccountIsNullAndTerminalIdInOrderByTxnTimestampDesc(terminalIds);
 
         int relinked = 0;
-        for (TransactionSummary txn : orphans) {
+        for (TransactionRecord txn : orphans) {
             PosAccount mapped = accountByTerminalId.get(txn.getTerminalId());
             if (mapped == null) {
                 continue;
@@ -170,7 +188,7 @@ public class TransactionService {
         return Map.of("relinked", relinked, "scanned", orphans.size(), "totalScoped", total);
     }
 
-    private List<TransactionSummary> includeScopedOrphans(List<TransactionSummary> scoped,
+    private List<TransactionRecord> includeScopedOrphans(List<TransactionRecord> scoped,
                                                           Long adminId,
                                                           Long merchantId,
                                                           Long terminalId) {
@@ -190,33 +208,46 @@ public class TransactionService {
             return scoped;
         }
 
-        List<TransactionSummary> orphans = txnRepo.findByPosAccountIsNullAndTerminalIdInOrderByTxnTimestampDesc(scopedTerminalIds);
+        List<TransactionRecord> orphans = txnRepo.findByPosAccountIsNullAndTerminalIdInOrderByTxnTimestampDesc(scopedTerminalIds);
         if (orphans == null || orphans.isEmpty()) {
             return scoped;
         }
 
-        List<TransactionSummary> merged = new ArrayList<>(scoped.size() + orphans.size());
-        Set<Long> seenIds = new HashSet<>();
-        for (TransactionSummary row : scoped) {
-            if (row != null && row.getId() != null && seenIds.add(row.getId())) {
-                merged.add(row);
-            }
-        }
-        for (TransactionSummary row : orphans) {
-            if (row != null && row.getId() != null && seenIds.add(row.getId())) {
-                merged.add(row);
-            }
-        }
-
-        merged.sort(Comparator.comparing(TransactionSummary::getTxnTimestamp,
+        List<TransactionRecord> merged = mergeDedupById(scoped, orphans);
+        merged.sort(Comparator.comparing(TransactionRecord::getTxnTimestamp,
                 Comparator.nullsLast(Comparator.reverseOrder())));
         return merged;
     }
 
+    private List<TransactionRecord> mergeDedupById(List<TransactionRecord> first,
+                                                   List<TransactionRecord> second) {
+        List<TransactionRecord> merged = new ArrayList<>((first != null ? first.size() : 0)
+                + (second != null ? second.size() : 0));
+        Set<Long> seenIds = new HashSet<>();
 
-    private TransactionSummaryDto toDto(TransactionSummary t) {
+        if (first != null) {
+            for (TransactionRecord row : first) {
+                if (row != null && row.getId() != null && seenIds.add(row.getId())) {
+                    merged.add(row);
+                }
+            }
+        }
+
+        if (second != null) {
+            for (TransactionRecord row : second) {
+                if (row != null && row.getId() != null && seenIds.add(row.getId())) {
+                    merged.add(row);
+                }
+            }
+        }
+
+        return merged;
+    }
+
+
+    private TransactionRecordDto toDto(TransactionRecord t) {
         Long posAccountId = t.getPosAccount() != null ? t.getPosAccount().getId() : null;
-        return TransactionSummaryDto.builder()
+        return TransactionRecordDto.builder()
                 .id(t.getId())
                 .traceNumber(t.getTraceNumber())
                 .amount(t.getAmount())

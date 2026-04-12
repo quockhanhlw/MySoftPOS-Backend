@@ -1,9 +1,11 @@
 package com.example.mysoftpos_backend.dto;
 
+import io.swagger.v3.oas.annotations.media.Schema;
 import lombok.*;
 
 @Getter @Setter @NoArgsConstructor @AllArgsConstructor @Builder
-public class TransactionSummaryDto {
+@Schema(name = "TransactionRecordDto", description = "Transaction record payload")
+public class TransactionRecordDto {
     private Long id;
     private String traceNumber;
     private String amount;
@@ -26,4 +28,5 @@ public class TransactionSummaryDto {
     private String currencyCode;
     private String rrn;
 }
+
 

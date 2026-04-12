@@ -13,7 +13,7 @@ import java.time.LocalDateTime;
 @NoArgsConstructor
 @AllArgsConstructor
 @Builder
-public class TransactionSummary {
+public class TransactionRecord {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -73,3 +73,4 @@ public class TransactionSummary {
     @Builder.Default
     private LocalDateTime syncedAt = LocalDateTime.now();
 }
+
