@@ -16,9 +16,13 @@ import java.time.Instant;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
+import java.util.ArrayList;
+import java.util.Comparator;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.HashMap;
+import java.util.Set;
 import java.util.stream.Collectors;
 
 @Service
@@ -86,6 +90,7 @@ public class TransactionService {
         } else {
             rows = txnRepo.findByPosAccountAdminIdOrderByTxnTimestampDesc(adminId);
         }
+        rows = includeScopedOrphans(rows, adminId, merchantId, terminalId);
         return rows.stream().map(this::toDto).collect(Collectors.toList());
     }
 
@@ -163,6 +168,49 @@ public class TransactionService {
                 ? (int) txnRepo.countByAdminIdAndMerchantId(adminId, merchantId)
                 : (int) txnRepo.countByAdminId(adminId);
         return Map.of("relinked", relinked, "scanned", orphans.size(), "totalScoped", total);
+    }
+
+    private List<TransactionSummary> includeScopedOrphans(List<TransactionSummary> scoped,
+                                                          Long adminId,
+                                                          Long merchantId,
+                                                          Long terminalId) {
+        List<Terminal> adminTerminals = terminalRepo.findByMerchantAdminId(adminId);
+        if (adminTerminals == null || adminTerminals.isEmpty()) {
+            return scoped;
+        }
+
+        List<Long> scopedTerminalIds = adminTerminals.stream()
+                .filter(t -> t != null && t.getId() != null)
+                .filter(t -> merchantId == null || (t.getMerchant() != null && merchantId.equals(t.getMerchant().getId())))
+                .filter(t -> terminalId == null || terminalId.equals(t.getId()))
+                .map(Terminal::getId)
+                .toList();
+
+        if (scopedTerminalIds.isEmpty()) {
+            return scoped;
+        }
+
+        List<TransactionSummary> orphans = txnRepo.findByPosAccountIsNullAndTerminalIdInOrderByTxnTimestampDesc(scopedTerminalIds);
+        if (orphans == null || orphans.isEmpty()) {
+            return scoped;
+        }
+
+        List<TransactionSummary> merged = new ArrayList<>(scoped.size() + orphans.size());
+        Set<Long> seenIds = new HashSet<>();
+        for (TransactionSummary row : scoped) {
+            if (row != null && row.getId() != null && seenIds.add(row.getId())) {
+                merged.add(row);
+            }
+        }
+        for (TransactionSummary row : orphans) {
+            if (row != null && row.getId() != null && seenIds.add(row.getId())) {
+                merged.add(row);
+            }
+        }
+
+        merged.sort(Comparator.comparing(TransactionSummary::getTxnTimestamp,
+                Comparator.nullsLast(Comparator.reverseOrder())));
+        return merged;
     }
 
 
