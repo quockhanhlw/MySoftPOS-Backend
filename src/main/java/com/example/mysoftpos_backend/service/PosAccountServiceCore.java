@@ -7,6 +7,7 @@ import com.example.mysoftpos_backend.entity.Branch;
 import com.example.mysoftpos_backend.entity.Merchant;
 import com.example.mysoftpos_backend.entity.PosAccount;
 import com.example.mysoftpos_backend.entity.Terminal;
+import com.example.mysoftpos_backend.repository.CardRepository;
 import com.example.mysoftpos_backend.repository.BranchRepository;
 import com.example.mysoftpos_backend.repository.MerchantRepository;
 import com.example.mysoftpos_backend.repository.PosAccountRepository;
@@ -33,6 +34,7 @@ public class PosAccountServiceCore {
     private final MerchantRepository merchantRepo;
     private final BranchRepository branchRepo;
     private final TerminalRepository terminalRepo;
+    private final CardRepository cardRepo;
     private final TransactionRecordRepository transactionRecordRepo;
     private final PasswordEncoder passwordEncoder;
 
@@ -40,12 +42,14 @@ public class PosAccountServiceCore {
                                  MerchantRepository merchantRepo,
                                  BranchRepository branchRepo,
                                  TerminalRepository terminalRepo,
+                                 CardRepository cardRepo,
                                  TransactionRecordRepository transactionRecordRepo,
                                  PasswordEncoder passwordEncoder) {
         this.posAccountRepo = posAccountRepo;
         this.merchantRepo = merchantRepo;
         this.branchRepo = branchRepo;
         this.terminalRepo = terminalRepo;
+        this.cardRepo = cardRepo;
         this.transactionRecordRepo = transactionRecordRepo;
         this.passwordEncoder = passwordEncoder;
     }
@@ -201,10 +205,11 @@ public class PosAccountServiceCore {
             throw new RuntimeException("Access denied");
         }
         int terminalCleared = terminalRepo.clearPosAccountMapping(posAccount.getId());
+        long cardsDeleted = cardRepo.deleteByPosAccountId(posAccount.getId());
         int transactionCleared = transactionRecordRepo.clearPosAccountMapping(posAccount.getId());
         int merchantOwnerCleared = merchantRepo.clearOwnerUserId(posAccount.getId());
-        log.info("Delete POS account cleanup accountId={} terminalCleared={} transactionCleared={} merchantOwnerCleared={}",
-                posAccount.getId(), terminalCleared, transactionCleared, merchantOwnerCleared);
+        log.info("Delete POS account cleanup accountId={} terminalCleared={} cardsDeleted={} transactionCleared={} merchantOwnerCleared={}",
+                posAccount.getId(), terminalCleared, cardsDeleted, transactionCleared, merchantOwnerCleared);
         posAccountRepo.delete(posAccount);
         log.info("Delete POS account success accountId={}", posAccount.getId());
     }

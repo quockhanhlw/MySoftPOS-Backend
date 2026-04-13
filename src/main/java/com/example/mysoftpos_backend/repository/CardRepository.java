@@ -11,5 +11,6 @@ public interface CardRepository extends JpaRepository<Card, Long> {
     List<Card> findByAdminIdOrderByIdDesc(Long adminId);
     List<Card> findByAdminIdInOrderByIdDesc(Collection<Long> adminIds);
     Optional<Card> findByAdminIdAndPanMasked(Long adminId, String panMasked);
+    long deleteByPosAccountId(Long posAccountId);
 }
 
