@@ -12,6 +12,7 @@ import com.example.mysoftpos_backend.repository.MerchantRepository;
 import com.example.mysoftpos_backend.repository.PosAccountRepository;
 import com.example.mysoftpos_backend.repository.TerminalRepository;
 import com.example.mysoftpos_backend.repository.TransactionRecordRepository;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
@@ -21,6 +22,7 @@ import java.util.List;
 import java.util.stream.Collectors;
 
 @Service
+@Slf4j
 public class PosAccountServiceCore {
 
     private static final java.util.regex.Pattern TID_PATTERN = java.util.regex.Pattern.compile("^[A-Z0-9]{8}$");
@@ -198,10 +200,13 @@ public class PosAccountServiceCore {
         if (!adminId.equals(posAccount.getAdminId())) {
             throw new RuntimeException("Access denied");
         }
-        terminalRepo.clearPosAccountMapping(posAccount.getId());
-        transactionRecordRepo.clearPosAccountMapping(posAccount.getId());
-        merchantRepo.clearOwnerUserId(posAccount.getId());
+        int terminalCleared = terminalRepo.clearPosAccountMapping(posAccount.getId());
+        int transactionCleared = transactionRecordRepo.clearPosAccountMapping(posAccount.getId());
+        int merchantOwnerCleared = merchantRepo.clearOwnerUserId(posAccount.getId());
+        log.info("Delete POS account cleanup accountId={} terminalCleared={} transactionCleared={} merchantOwnerCleared={}",
+                posAccount.getId(), terminalCleared, transactionCleared, merchantOwnerCleared);
         posAccountRepo.delete(posAccount);
+        log.info("Delete POS account success accountId={}", posAccount.getId());
     }
 
     public void resetPosAccountPassword(Long adminId, Long accountId, String newPassword) {
