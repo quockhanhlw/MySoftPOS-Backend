@@ -11,6 +11,7 @@ import com.example.mysoftpos_backend.repository.BranchRepository;
 import com.example.mysoftpos_backend.repository.MerchantRepository;
 import com.example.mysoftpos_backend.repository.PosAccountRepository;
 import com.example.mysoftpos_backend.repository.TerminalRepository;
+import com.example.mysoftpos_backend.repository.TransactionRecordRepository;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
@@ -30,17 +31,20 @@ public class PosAccountServiceCore {
     private final MerchantRepository merchantRepo;
     private final BranchRepository branchRepo;
     private final TerminalRepository terminalRepo;
+    private final TransactionRecordRepository transactionRecordRepo;
     private final PasswordEncoder passwordEncoder;
 
     public PosAccountServiceCore(@Qualifier("posAccountRepository") PosAccountRepository posAccountRepo,
                                  MerchantRepository merchantRepo,
                                  BranchRepository branchRepo,
                                  TerminalRepository terminalRepo,
+                                 TransactionRecordRepository transactionRecordRepo,
                                  PasswordEncoder passwordEncoder) {
         this.posAccountRepo = posAccountRepo;
         this.merchantRepo = merchantRepo;
         this.branchRepo = branchRepo;
         this.terminalRepo = terminalRepo;
+        this.transactionRecordRepo = transactionRecordRepo;
         this.passwordEncoder = passwordEncoder;
     }
 
@@ -195,7 +199,8 @@ public class PosAccountServiceCore {
             throw new RuntimeException("Access denied");
         }
         terminalRepo.clearPosAccountMapping(posAccount.getId());
-        merchantRepo.deleteByOwnerUserId(posAccount.getId());
+        transactionRecordRepo.clearPosAccountMapping(posAccount.getId());
+        merchantRepo.clearOwnerUserId(posAccount.getId());
         posAccountRepo.delete(posAccount);
     }
 

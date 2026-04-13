@@ -9,6 +9,7 @@ import com.example.mysoftpos_backend.repository.PosAccountRepository;
 import com.example.mysoftpos_backend.repository.TransactionRecordRepository;
 import com.example.mysoftpos_backend.repository.TerminalRepository;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -27,6 +28,7 @@ import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
+@Slf4j
 public class TransactionService {
 
     private final TransactionRecordRepository txnRepo;
@@ -41,38 +43,55 @@ public class TransactionService {
         if (posAccount == null || posAccount.getId() == null) return 0;
 
         for (TransactionSyncRequest.TxnItem item : req.getTransactions()) {
-            if (item.getTraceNumber() == null || item.getTraceNumber().isBlank()) continue;
-            if (txnRepo.existsByTraceNumberAndPosAccountId(item.getTraceNumber(), posAccount.getId())) continue;
+            try {
+                if (item.getTraceNumber() == null || item.getTraceNumber().isBlank()) {
+                    continue;
+                }
+                if (txnRepo.existsByTraceNumberAndPosAccountId(item.getTraceNumber(), posAccount.getId())) {
+                    continue;
+                }
 
-            Long terminalId = item.getTerminalId();
-            if (terminalId == null && item.getTerminalCode() != null && !item.getTerminalCode().isBlank()) {
-                terminalId = terminalRepo.findByTerminalCode(item.getTerminalCode())
-                        .map(Terminal::getId)
-                        .orElse(null);
+                Long terminalId = item.getTerminalId();
+                if (terminalId == null && item.getTerminalCode() != null && !item.getTerminalCode().isBlank()) {
+                    terminalId = terminalRepo.findByTerminalCode(item.getTerminalCode())
+                            .map(Terminal::getId)
+                            .orElse(null);
+                }
+
+                TransactionRecord txn = TransactionRecord.builder()
+                        .traceNumber(item.getTraceNumber())
+                        .amount(item.getAmount())
+                        .status(normalizeStatus(item.getStatus()))
+                        .maskedPan(item.getMaskedPan())
+                        .cardScheme(item.getCardScheme())
+                        .terminalId(terminalId)
+                        .cardId(item.getCardId())
+                        .requestHex(maskingService.maskIsoHex(item.getRequestHex()))
+                        .responseHex(maskingService.maskIsoHex(item.getResponseHex()))
+                        .processingCode(item.getProcessingCode())
+                        .currencyCode(item.getCurrencyCode())
+                        .rrn(item.getRrn())
+                        .posAccount(posAccount)
+                        .deviceId(item.getDeviceId())
+                        .txnTimestamp(LocalDateTime.ofInstant(
+                                Instant.ofEpochMilli(item.getTxnTimestamp()), ZoneId.systemDefault()))
+                        .build();
+                txnRepo.save(txn);
+                synced++;
+            } catch (Exception ex) {
+                log.warn("Skip sync item trace={} posAccountId={} reason={}",
+                        item.getTraceNumber(), posAccount.getId(), ex.getMessage());
             }
-
-            TransactionRecord txn = TransactionRecord.builder()
-                    .traceNumber(item.getTraceNumber())
-                    .amount(item.getAmount())
-                    .status(item.getStatus())
-                    .maskedPan(item.getMaskedPan())
-                    .cardScheme(item.getCardScheme())
-                    .terminalId(terminalId)
-                    .cardId(item.getCardId())
-                    .requestHex(maskingService.maskIsoHex(item.getRequestHex()))
-                    .responseHex(maskingService.maskIsoHex(item.getResponseHex()))
-                    .processingCode(item.getProcessingCode())
-                    .currencyCode(item.getCurrencyCode())
-                    .rrn(item.getRrn())
-                    .posAccount(posAccount)
-                    .deviceId(item.getDeviceId())
-                    .txnTimestamp(LocalDateTime.ofInstant(
-                            Instant.ofEpochMilli(item.getTxnTimestamp()), ZoneId.systemDefault()))
-                    .build();
-            txnRepo.save(txn);
-            synced++;
         }
         return synced;
+    }
+
+    private String normalizeStatus(String status) {
+        if (status == null) {
+            return null;
+        }
+        String normalized = status.trim();
+        return normalized.length() > 40 ? normalized.substring(0, 40) : normalized;
     }
 
     @Transactional(readOnly = true)

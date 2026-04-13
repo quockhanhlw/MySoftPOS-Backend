@@ -25,7 +25,7 @@ public class TransactionRecord {
     @Column(length = 20)
     private String amount;
 
-    @Column(length = 20)
+    @Column(length = 40)
     private String status; // APPROVED, DECLINED, TIMEOUT
 
     /** PA-DSS: Only masked PAN (first6+last4) — never full PAN */
