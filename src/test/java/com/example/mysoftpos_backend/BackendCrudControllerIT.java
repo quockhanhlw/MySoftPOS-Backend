@@ -144,6 +144,20 @@ class BackendCrudControllerIT {
         assertThat(branchRepository.findById(removableBranch.getId())).isEmpty();
     }
 
+    @Test
+    void delete_merchant_clears_owner_mapping_before_account_delete() throws Exception {
+        PosAccount admin = saveAdmin("http-admin-merchant-delete");
+        Merchant merchant = saveMerchant(admin.getId(), "MHTTPDEL00001");
+        PosAccount account = saveUser(admin.getId(), merchant.getId(), "http-user-owner");
+        merchant.setOwnerUserId(account.getId());
+        merchantRepository.saveAndFlush(merchant);
+
+        ResponseEntity<?> response = configController.deleteMerchant(admin, merchant.getId());
+        assertThat(response.getStatusCode().is2xxSuccessful()).isTrue();
+        assertThat(merchantRepository.findById(merchant.getId())).isEmpty();
+        assertThat(posAccountRepository.findById(account.getId())).isEmpty();
+    }
+
 
     private PosAccount saveAdmin(String username) {
         return posAccountRepository.save(PosAccount.builder()

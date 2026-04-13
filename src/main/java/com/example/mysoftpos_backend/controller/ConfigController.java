@@ -12,6 +12,8 @@ import com.example.mysoftpos_backend.repository.MerchantRepository;
 import com.example.mysoftpos_backend.repository.TerminalRepository;
 import com.example.mysoftpos_backend.repository.PosAccountRepository;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
@@ -26,6 +28,7 @@ import java.util.stream.Collectors;
 @RestController
 @RequestMapping("/api")
 @RequiredArgsConstructor
+@Slf4j
 public class ConfigController {
 
     private static final java.util.regex.Pattern BANK_NAME_PATTERN = java.util.regex.Pattern.compile("^[A-Z0-9]{2,22}$");
@@ -95,17 +98,31 @@ public class ConfigController {
         if (merchant == null || !Objects.equals(merchant.getAdminId(), admin.getId())) {
             return ResponseEntity.badRequest().body(Map.of("error", "Not found or access denied"));
         }
+        try {
+            List<Long> accountIds = userRepo.findIdsByAdminIdAndMerchantId(admin.getId(), id);
+            if (!accountIds.isEmpty()) {
+                int cleared = merchantRepo.clearOwnerUserIds(accountIds);
+                log.info("Delete merchant pre-cleanup merchantId={} accountCount={} ownerRefsCleared={}", id, accountIds.size(), cleared);
+            }
 
-        // Cascade remove merchant-owned config so admin can delete merchant from UI directly.
-        terminalRepo.deleteByMerchantId(id);
-        branchRepo.deleteByMerchantId(id);
-        if (merchant.getOwnerUserId() != null) {
-            merchant.setOwnerUserId(null);
-            merchantRepo.save(merchant);
+            // Cascade remove merchant-owned config so admin can delete merchant from UI directly.
+            terminalRepo.deleteByMerchantId(id);
+            branchRepo.deleteByMerchantId(id);
+            if (merchant.getOwnerUserId() != null) {
+                merchant.setOwnerUserId(null);
+                merchantRepo.saveAndFlush(merchant);
+            }
+            userRepo.deleteByAdminIdAndMerchantId(admin.getId(), id);
+            merchantRepo.delete(merchant);
+            return ResponseEntity.ok(Map.of("message", "Merchant deleted"));
+        } catch (DataIntegrityViolationException ex) {
+            log.warn("Delete merchant failed merchantId={} adminId={} due to FK constraint", id, admin.getId(), ex);
+            return ResponseEntity.status(HttpStatus.CONFLICT)
+                    .body(Map.of(
+                            "error", "Khong the xoa cua hang vi van con du lieu lien ket. Vui long xoa tai khoan/terminal lien quan truoc.",
+                            "errorCode", "MERCHANT_DELETE_CONFLICT"
+                    ));
         }
-        userRepo.deleteByAdminIdAndMerchantId(admin.getId(), id);
-        merchantRepo.delete(merchant);
-        return ResponseEntity.ok(Map.of("message", "Merchant deleted"));
     }
 
     @GetMapping("/merchants/{id}/accounts")

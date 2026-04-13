@@ -33,6 +33,9 @@ public interface PosAccountRepository extends JpaRepository<PosAccount, Long> {
 
     List<PosAccount> findByMerchantIdAndBranchId(Long merchantId, Long branchId);
 
+    @Query("SELECT u.id FROM PosAccount u WHERE u.adminId = :adminId AND u.merchantId = :merchantId")
+    List<Long> findIdsByAdminIdAndMerchantId(@Param("adminId") Long adminId, @Param("merchantId") Long merchantId);
+
     long countByAdminIdAndMerchantId(Long adminId, Long merchantId);
 
     void deleteByAdminIdAndMerchantId(Long adminId, Long merchantId);

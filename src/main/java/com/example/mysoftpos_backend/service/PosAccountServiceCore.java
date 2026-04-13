@@ -17,6 +17,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
 import java.util.List;
@@ -198,6 +199,7 @@ public class PosAccountServiceCore {
         return toPosAccountDto(posAccount);
     }
 
+    @Transactional
     public void deletePosAccount(Long adminId, Long accountId) {
         PosAccount posAccount = posAccountRepo.findById(accountId)
                 .orElseThrow(() -> new RuntimeException("Pos account not found"));

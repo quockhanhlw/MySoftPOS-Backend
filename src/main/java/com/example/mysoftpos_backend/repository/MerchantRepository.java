@@ -24,4 +24,9 @@ public interface MerchantRepository extends JpaRepository<Merchant, Long> {
     @Modifying(clearAutomatically = true, flushAutomatically = true)
     @Query("UPDATE Merchant m SET m.ownerUserId = null WHERE m.ownerUserId = :ownerUserId")
     int clearOwnerUserId(@Param("ownerUserId") Long ownerUserId);
+
+    @Transactional
+    @Modifying(clearAutomatically = true, flushAutomatically = true)
+    @Query("UPDATE Merchant m SET m.ownerUserId = null WHERE m.ownerUserId IN :ownerUserIds")
+    int clearOwnerUserIds(@Param("ownerUserIds") List<Long> ownerUserIds);
 }

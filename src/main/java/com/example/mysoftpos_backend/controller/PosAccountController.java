@@ -7,6 +7,7 @@ import com.example.mysoftpos_backend.entity.PosAccount;
 import com.example.mysoftpos_backend.service.PosAccountService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
@@ -66,6 +67,11 @@ public class PosAccountController {
         try {
             posAccountService.deletePosAccount(admin.getId(), id);
             return ResponseEntity.ok(Map.of("message", "Pos account deleted"));
+        } catch (DataIntegrityViolationException e) {
+            return ResponseEntity.status(HttpStatus.CONFLICT).body(Map.of(
+                    "error", "Khong the xoa tai khoan POS vi van con du lieu lien ket.",
+                    "errorCode", "POS_ACCOUNT_DELETE_CONFLICT"
+            ));
         } catch (RuntimeException e) {
             return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
         }

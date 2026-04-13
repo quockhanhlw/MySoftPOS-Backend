@@ -158,7 +158,10 @@ public class BranchController {
         long terminalCount = terminalRepo.countByMerchantIdAndBranchId(merchantId, branchId);
         if (accountCount > 0 || terminalCount > 0) {
             return ResponseEntity.status(HttpStatus.CONFLICT)
-                    .body(Map.of("error", "Branch has linked accounts or terminals"));
+                    .body(Map.of(
+                            "error", "Khong the xoa chi nhanh vi van con tai khoan hoac thiet bi dau cuoi lien ket.",
+                            "errorCode", "BRANCH_DELETE_CONFLICT"
+                    ));
         }
 
         branchRepo.delete(branch);
